@@ -84,6 +84,12 @@ impl<'a> Lexer<'a> {
             match ident.as_str() {
                 "let" => Token::Let,
                 "fn" => Token::Fn,
+                "true" => Token::True,
+                "false" => Token::False,
+                "if" => Token::If,
+                "else" => Token::Else,
+                "return" => Token::Return,
+
                 _ => Token::Ident(ident),
             }
         } else if Lexer::is_digit(&c) {
@@ -187,6 +193,25 @@ mod tests {
                 Token::Eof,
             ]
         );
+    }
+
+    #[test]
+    fn lex_keywords() {
+        let input = "let fn true false if else return".to_string();
+        let mut lex = Lexer::new(&input).unwrap();
+        assert_eq!(
+            get_all_tokens(&mut lex),
+            vec![
+                Token::Let,
+                Token::Fn,
+                Token::True,
+                Token::False,
+                Token::If,
+                Token::Else,
+                Token::Return,
+                Token::Eof,
+            ]
+        )
     }
 
     #[test]

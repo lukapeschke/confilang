@@ -32,4 +32,9 @@ pub enum Token {
     // Keywords
     Let,
     Fn,
+    True,
+    False,
+    If,
+    Else,
+    Return,
 }
