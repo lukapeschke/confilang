@@ -28,7 +28,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn is_digit(c: &char) -> bool {
-        c.is_ascii_digit()
+        c.is_ascii_digit() || *c == '-' || *c == '.'
     }
 
     fn is_whitespace(c: &char) -> bool {
@@ -66,6 +66,16 @@ impl<'a> Lexer<'a> {
         self.read_token(initializer, Lexer::is_digit)
     }
 
+    // Tries to parse a string as an int or a float
+    fn parse_number(s: &String) -> Token {
+        match s.parse::<i32>() {
+            Ok(i) => Token::Int(i),
+            Err(_) => match s.parse::<f32>() {
+                Ok(f) => Token::Float(f),
+                Err(_) => Token::Illegal(s.clone()),
+            },
+        }
+    }
     fn handle_ident(&mut self, c: char) -> Token {
         if Lexer::is_ident_ch(&c) {
             let ident: String = self.read_ident(c);
@@ -78,11 +88,7 @@ impl<'a> Lexer<'a> {
             }
         } else if Lexer::is_digit(&c) {
             // Reading a number and trying to parse it
-            let ident: String = self.read_number(c);
-            match ident.parse::<i32>() {
-                Ok(i) => Token::Int(i),
-                Err(_) => Token::Illegal(ident),
-            }
+            Lexer::parse_number(&self.read_number(c))
         } else {
             Token::Illegal(c.to_string())
         }
@@ -172,6 +178,23 @@ mod tests {
 
     #[test]
     fn lex_add() {
+        let input = "let f = 10.5;".to_string();
+        let mut lex = Lexer::new(&input).unwrap();
+        assert_eq!(
+            get_all_tokens(&mut lex),
+            vec![
+                Token::Let,
+                Token::Ident("f".to_string()),
+                Token::Assign,
+                Token::Float(10.5),
+                Token::Semicolon,
+                Token::Eof,
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_float() {
         let input = "
 let five = 5;
 let ten = 10;
