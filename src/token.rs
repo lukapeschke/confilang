@@ -39,4 +39,10 @@ pub enum Token {
     Return,
     And,
     Or,
+
+    // Multi char operators
+    Equals,
+    Differs,
+    Ge,
+    Le,
 }

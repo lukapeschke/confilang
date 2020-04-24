@@ -119,14 +119,40 @@ impl<'a> Lexer<'a> {
         match self.read_char() {
             Some(c) => match c {
                 // operators
-                '=' => Token::Assign,
                 '+' => Token::Plus,
                 '-' => Token::Minus,
                 '*' => Token::Asterisk,
                 '/' => Token::Slash,
-                '!' => Token::Bang,
-                '<' => Token::Lt,
-                '>' => Token::Gt,
+
+                // possible multichar operators
+                '=' => match self.peek_char() {
+                    Some('=') => {
+                        self.read_char();
+                        Token::Equals
+                    }
+                    _ => Token::Assign,
+                },
+                '!' => match self.peek_char() {
+                    Some('=') => {
+                        self.read_char();
+                        Token::Differs
+                    }
+                    _ => Token::Bang,
+                },
+                '<' => match self.peek_char() {
+                    Some('=') => {
+                        self.read_char();
+                        Token::Le
+                    }
+                    _ => Token::Lt,
+                },
+                '>' => match self.peek_char() {
+                    Some('=') => {
+                        self.read_char();
+                        Token::Ge
+                    }
+                    _ => Token::Gt,
+                },
 
                 // delimiters
                 ',' => Token::Comma,
@@ -175,6 +201,22 @@ mod tests {
             }
         }
         output
+    }
+
+    #[test]
+    fn lex_multichar_op() {
+        let input = "== != >= <=".to_string();
+        let mut lex = Lexer::new(&input).unwrap();
+        assert_eq!(
+            get_all_tokens(&mut lex),
+            vec![
+                Token::Equals,
+                Token::Differs,
+                Token::Ge,
+                Token::Le,
+                Token::Eof,
+            ]
+        )
     }
 
     #[test]
