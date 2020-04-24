@@ -110,8 +110,17 @@ impl<'a> Lexer<'a> {
         self.skip_whitespace();
         match self.read_char() {
             Some(c) => match c {
+                // operators
                 '=' => Token::Assign,
                 '+' => Token::Plus,
+                '-' => Token::Minus,
+                '*' => Token::Asterisk,
+                '/' => Token::Slash,
+                '!' => Token::Bang,
+                '<' => Token::Lt,
+                '>' => Token::Gt,
+
+                // delimiters
                 ',' => Token::Comma,
                 ';' => Token::Semicolon,
                 '(' => Token::LeftParen,
@@ -120,6 +129,8 @@ impl<'a> Lexer<'a> {
                 '}' => Token::RightBrace,
                 _ => self.handle_ident(c),
             },
+
+            // End of String
             None => Token::Eof,
         }
     }
@@ -156,6 +167,26 @@ mod tests {
             }
         }
         output
+    }
+
+    #[test]
+    fn lex_op() {
+        let input = "=+-*/!<>".to_string();
+        let mut lex = Lexer::new(&input).unwrap();
+        assert_eq!(
+            get_all_tokens(&mut lex),
+            vec![
+                Token::Assign,
+                Token::Plus,
+                Token::Minus,
+                Token::Asterisk,
+                Token::Slash,
+                Token::Bang,
+                Token::Lt,
+                Token::Gt,
+                Token::Eof,
+            ]
+        );
     }
 
     #[test]
