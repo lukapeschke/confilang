@@ -89,6 +89,8 @@ impl<'a> Lexer<'a> {
                 "if" => Token::If,
                 "else" => Token::Else,
                 "return" => Token::Return,
+                "and" => Token::And,
+                "or" => Token::Or,
 
                 _ => Token::Ident(ident),
             }
@@ -197,7 +199,7 @@ mod tests {
 
     #[test]
     fn lex_keywords() {
-        let input = "let fn true false if else return".to_string();
+        let input = "let fn true false if else return and or".to_string();
         let mut lex = Lexer::new(&input).unwrap();
         assert_eq!(
             get_all_tokens(&mut lex),
@@ -209,6 +211,8 @@ mod tests {
                 Token::If,
                 Token::Else,
                 Token::Return,
+                Token::And,
+                Token::Or,
                 Token::Eof,
             ]
         )

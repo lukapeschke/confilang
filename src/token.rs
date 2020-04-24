@@ -37,4 +37,6 @@ pub enum Token {
     If,
     Else,
     Return,
+    And,
+    Or,
 }
