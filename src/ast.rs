@@ -5,17 +5,18 @@ pub enum Node {
     Expression(Expression),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Expression {
     Identifier(expressions::Identifier),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Statement {
     Let(statements::Let),
+    Return(statements::Return),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Program {
     statements: Vec<Statement>,
 }
@@ -34,10 +35,14 @@ impl Program {
     pub fn repr(&self) -> String {
         format!("{:?}", self.statements)
     }
+
+    pub fn statements(&self) -> &Vec<Statement> {
+        &self.statements
+    }
 }
 
-mod expressions {
-    #[derive(Debug)]
+pub mod expressions {
+    #[derive(Debug, PartialEq)]
     pub struct Identifier {
         name: String,
     }
@@ -57,17 +62,26 @@ pub mod statements {
         fn parse(l: &mut parser::Parser) -> Result<Statement, String>;
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct Let {
         ident: expressions::Identifier,
         value: Expression,
     }
 
+    impl Let {
+        pub fn new(ident: expressions::Identifier, value: Expression) -> Let {
+            Let {
+                ident: ident,
+                value: value,
+            }
+        }
+    }
+
     impl StatementType for Let {
-        fn parse(l: &mut parser::Parser) -> Result<Statement, String> {
-            let ident = match l.peek_token() {
+        fn parse(p: &mut parser::Parser) -> Result<Statement, String> {
+            let ident = match p.peek_token() {
                 Some(Token::Ident(id)) => {
-                    l.next_token();
+                    p.next_token();
                     Ok(id)
                 }
                 Some(tok) => Err(format!("Expected Ident token, got {:?}", tok)),
@@ -75,9 +89,9 @@ pub mod statements {
             }?;
 
             // Skipping assign;
-            if match l.peek_token() {
+            if match p.peek_token() {
                 Some(Token::Assign) => {
-                    l.next_token();
+                    p.next_token();
                     false
                 }
                 _ => true,
@@ -86,9 +100,9 @@ pub mod statements {
             }
 
             // FIXME: we only suport "let" x = y;
-            let value = match l.peek_token() {
+            let value = match p.peek_token() {
                 Some(Token::Ident(val)) => {
-                    l.next_token();
+                    p.next_token();
                     Ok(val)
                 }
                 Some(tok) => Err(format!("Expected Ident token, got {:?}", tok)),
@@ -96,9 +110,9 @@ pub mod statements {
             }?;
 
             // Skipping semicolon
-            if match l.peek_token() {
+            if match p.peek_token() {
                 Some(Token::Semicolon) => {
-                    l.next_token();
+                    p.next_token();
                     false
                 }
                 _ => true,
@@ -106,10 +120,45 @@ pub mod statements {
                 return Err(format!("Expected Semicolon token",));
             }
 
-            Ok(Statement::Let(Let {
-                ident: Identifier::new("ident".to_string()),
-                value: Expression::Identifier(Identifier::new("value".to_string())),
-            }))
+            Ok(Statement::Let(Let::new(
+                Identifier::new(ident),
+                Expression::Identifier(Identifier::new(value)),
+            )))
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    pub struct Return {
+        expr: Expression,
+    }
+
+    impl Return {
+        pub fn new(expr: expressions::Identifier) -> Return {
+            Return {
+                expr: Expression::Identifier(expr),
+            }
+        }
+    }
+
+    impl StatementType for Return {
+        fn parse(p: &mut parser::Parser) -> Result<Statement, String> {
+            let ident = match p.peek_token() {
+                Some(Token::Ident(id)) => {
+                    p.next_token();
+                    Ok(id)
+                }
+                Some(tok) => Err(format!("Expected Ident token, got {:?}", tok)),
+                None => Err("Exepected Ident token, got None".to_string()),
+            }?;
+
+            match p.peek_token() {
+                Some(Token::Semicolon) => {
+                    p.next_token();
+                    Ok(Statement::Return(Return::new(Identifier::new(ident))))
+                }
+                Some(tok) => Err(format!("Expected Semicolon token, got {:?}", tok)),
+                None => Err("Exepected Ident token, got None".to_string()),
+            }
         }
     }
 }

@@ -39,6 +39,7 @@ impl<'a> Parser<'a> {
         while let Some(tok) = self.next_token() {
             let statement = match tok {
                 Token::Let => statements::Let::parse(self),
+                Token::Return => statements::Return::parse(self),
                 _ => Err(format!("Unmatched token {:?}", tok)),
             }?;
             p.push(statement);
@@ -52,12 +53,31 @@ mod tests {
     use super::*;
     use crate::lexer::Lexer;
 
-    #[test]
-    fn test_parse_program() {
-        let lexer_input = "let a = b;".to_string();
-        let mut lex = Lexer::new(&lexer_input).unwrap();
+    fn test_parse_x(input: String, expected: &Vec<Statement>) {
+        let mut lex = Lexer::new(&input).unwrap();
         let mut parser = Parser::new(&mut lex).unwrap();
         let program = parser.parse_program().unwrap();
-        // println!("program {:?}", program.statements);
+        assert_eq!(program.statements(), expected)
+    }
+
+    #[test]
+    fn test_parse_let() {
+        test_parse_x(
+            "let a = b;".to_string(),
+            &vec![Statement::Let(statements::Let::new(
+                expressions::Identifier::new("a".to_string()),
+                Expression::Identifier(expressions::Identifier::new("b".to_string())),
+            ))],
+        );
+    }
+
+    #[test]
+    fn test_parse_return() {
+        test_parse_x(
+            "return r;".to_string(),
+            &vec![Statement::Return(statements::Return::new(
+                expressions::Identifier::new("r".to_string()),
+            ))],
+        );
     }
 }
