@@ -1,4 +1,5 @@
 use crate::lexer;
+use crate::parser;
 
 use std::io::Write;
 
@@ -7,7 +8,9 @@ static PROMPT: &str = "~> ";
 fn handle_line(line: &String) -> Result<i32, i32> {
     match lexer::Lexer::new(line) {
         Some(mut lex) => {
-            println!("{:?}", lex.get_all_tokens());
+            let mut p = parser::Parser::new(&mut lex).unwrap();
+            let prog = p.parse_program().unwrap();
+            println!("{:?}", prog.repr());
             Ok(0)
         }
         _ => Err(1),
