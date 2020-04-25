@@ -114,59 +114,55 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace();
-        match self.read_char() {
-            Some(c) => match c {
-                // operators
-                '+' => Token::Plus,
-                '-' => Token::Minus,
-                '*' => Token::Asterisk,
-                '/' => Token::Slash,
+        let c = self.read_char()?;
+        Some(match c {
+            // operators
+            '+' => Token::Plus,
+            '-' => Token::Minus,
+            '*' => Token::Asterisk,
+            '/' => Token::Slash,
 
-                // possible multichar operators
-                '=' => match self.peek_char() {
-                    Some('=') => {
-                        self.read_char();
-                        Token::Equals
-                    }
-                    _ => Token::Assign,
-                },
-                '!' => match self.peek_char() {
-                    Some('=') => {
-                        self.read_char();
-                        Token::Differs
-                    }
-                    _ => Token::Bang,
-                },
-                '<' => match self.peek_char() {
-                    Some('=') => {
-                        self.read_char();
-                        Token::Le
-                    }
-                    _ => Token::Lt,
-                },
-                '>' => match self.peek_char() {
-                    Some('=') => {
-                        self.read_char();
-                        Token::Ge
-                    }
-                    _ => Token::Gt,
-                },
-
-                // delimiters
-                ',' => Token::Comma,
-                ';' => Token::Semicolon,
-                '(' => Token::LeftParen,
-                ')' => Token::RightParen,
-                '{' => Token::LeftBrace,
-                '}' => Token::RightBrace,
-                _ => self.handle_ident(c),
+            // possible multichar operators
+            '=' => match self.peek_char() {
+                Some('=') => {
+                    self.read_char();
+                    Token::Equals
+                }
+                _ => Token::Assign,
+            },
+            '!' => match self.peek_char() {
+                Some('=') => {
+                    self.read_char();
+                    Token::Differs
+                }
+                _ => Token::Bang,
+            },
+            '<' => match self.peek_char() {
+                Some('=') => {
+                    self.read_char();
+                    Token::Le
+                }
+                _ => Token::Lt,
+            },
+            '>' => match self.peek_char() {
+                Some('=') => {
+                    self.read_char();
+                    Token::Ge
+                }
+                _ => Token::Gt,
             },
 
-            // End of String
-            None => Token::Eof,
-        }
+            // delimiters
+            ',' => Token::Comma,
+            ';' => Token::Semicolon,
+            '(' => Token::LeftParen,
+            ')' => Token::RightParen,
+            '{' => Token::LeftBrace,
+            '}' => Token::RightBrace,
+            _ => self.handle_ident(c),
+        })
     }
 
     pub fn new(text: &'a String) -> Option<Lexer<'a>> {
@@ -185,13 +181,8 @@ impl<'a> Lexer<'a> {
 
     pub fn get_all_tokens(&mut self) -> Vec<Token> {
         let mut output = Vec::new();
-        loop {
-            let tok = self.next_token();
-            output.push(tok.clone());
-            match &tok {
-                Token::Eof => break,
-                _ => (),
-            }
+        while let Some(tok) = self.next_token() {
+            output.push(tok.clone())
         }
         output
     }
@@ -205,13 +196,8 @@ mod tests {
 
     fn get_all_tokens(lex: &mut Lexer) -> Vec<Token> {
         let mut output = Vec::new();
-        loop {
-            let tok = lex.next_token();
-            output.push(tok.clone());
-            match &tok {
-                Token::Eof => break,
-                _ => (),
-            }
+        while let Some(tok) = lex.next_token() {
+            output.push(tok.clone())
         }
         output
     }
@@ -222,13 +208,7 @@ mod tests {
         let mut lex = Lexer::new(&input).unwrap();
         assert_eq!(
             get_all_tokens(&mut lex),
-            vec![
-                Token::Equals,
-                Token::Differs,
-                Token::Ge,
-                Token::Le,
-                Token::Eof,
-            ]
+            vec![Token::Equals, Token::Differs, Token::Ge, Token::Le,]
         )
     }
 
@@ -247,7 +227,6 @@ mod tests {
                 Token::Bang,
                 Token::Lt,
                 Token::Gt,
-                Token::Eof,
             ]
         );
     }
@@ -268,7 +247,6 @@ mod tests {
                 Token::Return,
                 Token::And,
                 Token::Or,
-                Token::Eof,
             ]
         )
     }
@@ -286,7 +264,6 @@ mod tests {
                 Token::RightParen,
                 Token::LeftBrace,
                 Token::RightBrace,
-                Token::Eof,
             ]
         );
     }
@@ -303,7 +280,6 @@ mod tests {
                 Token::Assign,
                 Token::Float(10.5),
                 Token::Semicolon,
-                Token::Eof,
             ]
         )
     }
@@ -361,7 +337,6 @@ let result = add(five, ten);
                 Token::Ident("ten".to_string()),
                 Token::RightParen,
                 Token::Semicolon,
-                Token::Eof,
             ]
         );
     }
