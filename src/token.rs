@@ -1,4 +1,5 @@
 use crate::ast;
+use crate::parser;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -48,12 +49,25 @@ pub enum Token {
 }
 
 impl Token {
-    pub fn parse_prefix(&self) -> Result<ast::Expression, String> {
+    fn parse_prefix_expression(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
+        // If we're here, we assume that self if one of [Bang, Minus]
+        p.next_token();
+        let expr = p.parse_expression(parser::Precedence::Prefix)?;
+
+        Ok(ast::Expression::Prefix(ast::expressions::Prefix::new(
+            self.clone(),
+            expr,
+        )))
+    }
+    pub fn parse_prefix(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
         match self {
-            // ident is a &String
             Token::Ident(ident) => Ok(ast::Expression::Identifier(
+                // ident is a &String, so we need to clone
                 ast::expressions::Identifier::new(ident.clone()),
             )),
+            Token::Int(i) => Ok(ast::Expression::Int(ast::expressions::Int::new(*i))),
+            Token::Float(f) => Ok(ast::Expression::Float(ast::expressions::Float::new(*f))),
+            Token::Bang | Token::Minus => self.parse_prefix_expression(p),
             _ => Err(format!("Unsupported prefix token {:?}", self)),
         }
     }

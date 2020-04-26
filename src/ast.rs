@@ -8,6 +8,9 @@ pub enum Node {
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     Identifier(expressions::Identifier),
+    Int(expressions::Int),
+    Float(expressions::Float),
+    Prefix(expressions::Prefix),
 }
 
 #[derive(Debug, PartialEq)]
@@ -43,6 +46,10 @@ impl Program {
 }
 
 pub mod expressions {
+
+    use super::Expression;
+    use super::Token;
+
     #[derive(Debug, PartialEq)]
     pub struct Identifier {
         name: String,
@@ -51,6 +58,43 @@ pub mod expressions {
     impl Identifier {
         pub fn new(name: String) -> Identifier {
             Identifier { name: name }
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    pub struct Int {
+        val: i32,
+    }
+
+    impl Int {
+        pub fn new(i: i32) -> Int {
+            Int { val: i }
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    pub struct Float {
+        val: f32,
+    }
+
+    impl Float {
+        pub fn new(f: f32) -> Float {
+            Float { val: f }
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    pub struct Prefix {
+        tok: Token,
+        expr: Box<Expression>,
+    }
+
+    impl Prefix {
+        pub fn new(tok: Token, expr: Expression) -> Prefix {
+            Prefix {
+                tok: tok,
+                expr: Box::new(expr),
+            }
         }
     }
 }

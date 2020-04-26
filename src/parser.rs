@@ -3,7 +3,7 @@ use crate::ast::*;
 use crate::lexer;
 use crate::token::Token;
 
-enum Precedence {
+pub enum Precedence {
     Lowest,
     Equals,
     LessGreater,
@@ -62,13 +62,13 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse_expression_lowest(&self) -> Result<Expression, String> {
+    pub fn parse_expression_lowest(&mut self) -> Result<Expression, String> {
         self.parse_expression(Precedence::Lowest)
     }
 
-    fn parse_expression(&self, prec: Precedence) -> Result<Expression, String> {
+    pub fn parse_expression(&mut self, prec: Precedence) -> Result<Expression, String> {
         if let Some(token) = self.cur_token() {
-            token.parse_prefix()
+            token.parse_prefix(self)
         } else {
             Err("No token to parse".to_string())
         }
@@ -116,6 +116,47 @@ mod tests {
                 statements::ExpressionStatement::new(Expression::Identifier(
                     expressions::Identifier::new("super_ident".to_string()),
                 )),
+            )],
+        );
+    }
+
+    #[test]
+    fn test_parse_expression_statement_int_float() {
+        test_parse_x(
+            "42;13.37".to_string(),
+            &vec![
+                Statement::ExpressionStatement(statements::ExpressionStatement::new(
+                    Expression::Int(expressions::Int::new(42)),
+                )),
+                Statement::ExpressionStatement(statements::ExpressionStatement::new(
+                    Expression::Float(expressions::Float::new(13.37)),
+                )),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_parse_expression_statement_bang_prefix() {
+        test_parse_x(
+            "!coucou".to_string(),
+            &vec![Statement::ExpressionStatement(
+                statements::ExpressionStatement::new(Expression::Prefix(expressions::Prefix::new(
+                    Token::Bang,
+                    Expression::Identifier(expressions::Identifier::new("coucou".to_string())),
+                ))),
+            )],
+        );
+    }
+
+    #[test]
+    fn test_parse_expression_statement_minus_prefix() {
+        test_parse_x(
+            "-coucou;".to_string(),
+            &vec![Statement::ExpressionStatement(
+                statements::ExpressionStatement::new(Expression::Prefix(expressions::Prefix::new(
+                    Token::Minus,
+                    Expression::Identifier(expressions::Identifier::new("coucou".to_string())),
+                ))),
             )],
         );
     }
