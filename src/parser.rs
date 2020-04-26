@@ -3,6 +3,16 @@ use crate::ast::*;
 use crate::lexer;
 use crate::token::Token;
 
+enum Precedence {
+    Lowest,
+    Equals,
+    LessGreater,
+    Sum,
+    Product,
+    Prefix, // -x or !x
+    Call,
+}
+
 pub struct Parser<'a> {
     lex: &'a mut lexer::Lexer<'a>,
     cur_token: Option<Token>,
@@ -37,14 +47,31 @@ impl<'a> Parser<'a> {
     pub fn parse_program(&mut self) -> Result<Program, String> {
         let mut p = Program::new();
         while let Some(tok) = self.next_token() {
-            let statement = match tok {
-                Token::Let => statements::Let::parse(self),
-                Token::Return => statements::Return::parse(self),
-                _ => Err(format!("Unmatched token {:?}", tok)),
-            }?;
+            let statement = self.parse_statement(tok)?;
             p.push(statement);
         }
         Ok(p)
+    }
+
+    fn parse_statement(&mut self, token: Token) -> Result<Statement, String> {
+        match token {
+            Token::Let => statements::Let::parse(self),
+            Token::Return => statements::Return::parse(self),
+            _ => statements::ExpressionStatement::parse(self),
+            // _ => Err(format!("Unmatched token {:?}", token)),
+        }
+    }
+
+    pub fn parse_expression_lowest(&self) -> Result<Expression, String> {
+        self.parse_expression(Precedence::Lowest)
+    }
+
+    fn parse_expression(&self, prec: Precedence) -> Result<Expression, String> {
+        if let Some(token) = self.cur_token() {
+            token.parse_prefix()
+        } else {
+            Err("No token to parse".to_string())
+        }
     }
 }
 
@@ -78,6 +105,18 @@ mod tests {
             &vec![Statement::Return(statements::Return::new(
                 expressions::Identifier::new("r".to_string()),
             ))],
+        );
+    }
+
+    #[test]
+    fn test_parse_expression_statement_ident() {
+        test_parse_x(
+            "super_ident;".to_string(),
+            &vec![Statement::ExpressionStatement(
+                statements::ExpressionStatement::new(Expression::Identifier(
+                    expressions::Identifier::new("super_ident".to_string()),
+                )),
+            )],
         );
     }
 }

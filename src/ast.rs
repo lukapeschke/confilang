@@ -14,6 +14,7 @@ pub enum Expression {
 pub enum Statement {
     Let(statements::Let),
     Return(statements::Return),
+    ExpressionStatement(statements::ExpressionStatement),
 }
 
 #[derive(Debug, PartialEq)]
@@ -159,6 +160,35 @@ pub mod statements {
                 Some(tok) => Err(format!("Expected Semicolon token, got {:?}", tok)),
                 None => Err("Exepected Ident token, got None".to_string()),
             }
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    pub struct ExpressionStatement {
+        expr: Expression,
+    }
+
+    impl ExpressionStatement {
+        pub fn new(expr: Expression) -> ExpressionStatement {
+            ExpressionStatement { expr: expr }
+        }
+    }
+
+    impl StatementType for ExpressionStatement {
+        fn parse(p: &mut parser::Parser) -> Result<Statement, String> {
+            let expression = p.parse_expression_lowest()?;
+
+            // Skipping semicolon
+            match p.peek_token() {
+                Some(Token::Semicolon) => {
+                    p.next_token();
+                }
+                _ => (),
+            }
+
+            Ok(Statement::ExpressionStatement(ExpressionStatement::new(
+                expression,
+            )))
         }
     }
 }
