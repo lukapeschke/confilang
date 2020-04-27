@@ -45,12 +45,20 @@ impl<'a> Parser<'a> {
         self.cur_token.clone()
     }
 
-    pub fn peek_precedence(&self) -> Option<Precedence> {
-        self.peek_token()?.precedence()
+    pub fn peek_precedence(&self) -> Precedence {
+        if let Some(token) = self.peek_token() {
+            token.precedence()
+        } else {
+            Precedence::Lowest
+        }
     }
 
-    pub fn cur_precedence(&self) -> Option<Precedence> {
-        self.cur_token()?.precedence()
+    pub fn cur_precedence(&self) -> Precedence {
+        if let Some(token) = self.cur_token() {
+            token.precedence()
+        } else {
+            Precedence::Lowest
+        }
     }
 
     pub fn parse_program(&mut self) -> Result<Program, String> {
@@ -80,11 +88,8 @@ impl<'a> Parser<'a> {
             Some(Token::Semicolon) | None => true,
             _ => false,
         };
-        let precedence_is_higher_as_next_or_none = match self.peek_precedence() {
-            Some(peek_prec) => *prec as i32 >= peek_prec as i32,
-            None => true,
-        };
-        token_is_semicolumn_or_none || precedence_is_higher_as_next_or_none
+        let precedence_is_higher_as_next = *prec as i32 >= self.peek_precedence() as i32;
+        token_is_semicolumn_or_none || precedence_is_higher_as_next
     }
 
     pub fn parse_expression(&mut self, prec: &Precedence) -> Result<Expression, String> {

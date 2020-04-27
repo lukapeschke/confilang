@@ -77,31 +77,28 @@ impl Token {
         p: &mut parser::Parser,
         left: ast::Expression,
     ) -> Result<ast::Expression, String> {
-        if let Some(precedence) = p.cur_precedence() {
-            p.next_token();
-            let right = p.parse_expression(&precedence)?;
-            Ok(ast::Expression::Infix(ast::expressions::Infix::new(
-                self.clone(),
-                left,
-                right,
-            )))
-        } else {
-            Err("Current token has no precedence".to_string())
-        }
+        let precedence = p.cur_precedence();
+        p.next_token();
+        let right = p.parse_expression(&precedence)?;
+        Ok(ast::Expression::Infix(ast::expressions::Infix::new(
+            self.clone(),
+            left,
+            right,
+        )))
     }
 
     // Returns a Token's precedence
-    pub fn precedence(&self) -> Option<parser::Precedence> {
+    pub fn precedence(&self) -> parser::Precedence {
         match self {
-            Token::Equals => Some(parser::Precedence::Equals),
-            Token::Differs => Some(parser::Precedence::Equals),
-            Token::Lt => Some(parser::Precedence::LessGreater),
-            Token::Gt => Some(parser::Precedence::LessGreater),
-            Token::Plus => Some(parser::Precedence::Sum),
-            Token::Minus => Some(parser::Precedence::Sum),
-            Token::Slash => Some(parser::Precedence::Product),
-            Token::Asterisk => Some(parser::Precedence::Product),
-            _ => None,
+            Token::Equals => parser::Precedence::Equals,
+            Token::Differs => parser::Precedence::Equals,
+            Token::Lt => parser::Precedence::LessGreater,
+            Token::Gt => parser::Precedence::LessGreater,
+            Token::Plus => parser::Precedence::Sum,
+            Token::Minus => parser::Precedence::Sum,
+            Token::Slash => parser::Precedence::Product,
+            Token::Asterisk => parser::Precedence::Product,
+            _ => parser::Precedence::Lowest,
         }
     }
 }
