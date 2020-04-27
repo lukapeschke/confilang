@@ -72,30 +72,28 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_expression_lowest(&mut self) -> Result<Expression, String> {
-        self.parse_expression(Precedence::Lowest)
+        self.parse_expression(&Precedence::Lowest)
     }
 
-    pub fn parse_expression(&mut self, prec: Precedence) -> Result<Expression, String> {
+    fn parse_expression_should_break(&self, prec: &Precedence) -> bool {
+        let token_is_semicolumn_or_none = match self.peek_token() {
+            Some(Token::Semicolon) | None => true,
+            _ => false,
+        };
+        let precedence_is_higher_as_next_or_none = match self.peek_precedence() {
+            Some(peek_prec) => *prec as i32 >= peek_prec as i32,
+            None => true,
+        };
+        token_is_semicolumn_or_none || precedence_is_higher_as_next_or_none
+    }
+
+    pub fn parse_expression(&mut self, prec: &Precedence) -> Result<Expression, String> {
         if let Some(token) = self.cur_token() {
             let mut left = token.parse_prefix(self)?;
 
-            loop {
-                // looping until we reach a semicolumn or our precedence is
-                // superior to the next token's precedence
-                match self.peek_token() {
-                    Some(Token::Semicolon) | None => {
-                        break;
-                    }
-                    _ => (),
-                };
-                if let Some(peek_prec) = self.peek_precedence() {
-                    if prec as i32 >= peek_prec as i32 {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-
+            // looping until we reach a semicolumn or our precedence is
+            // superior to the next token's precedence
+            while !self.parse_expression_should_break(prec) {
                 if let Some(token) = self.next_token() {
                     match token.parse_infix(self, left.clone()) {
                         Ok(exp) => {
@@ -106,8 +104,6 @@ impl<'a> Parser<'a> {
                         }
                     }
                 }
-                // self.nextToken()
-                // leftExp = infix(leftExp)
             }
 
             Ok(left)

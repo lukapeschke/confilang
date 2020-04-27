@@ -52,7 +52,7 @@ impl Token {
     fn parse_prefix_expression(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
         // If we're here, we assume that self if one of [Bang, Minus]
         p.next_token();
-        let expr = p.parse_expression(parser::Precedence::Prefix)?;
+        let expr = p.parse_expression(&parser::Precedence::Prefix)?;
 
         Ok(ast::Expression::Prefix(ast::expressions::Prefix::new(
             self.clone(),
@@ -79,7 +79,7 @@ impl Token {
     ) -> Result<ast::Expression, String> {
         if let Some(precedence) = p.cur_precedence() {
             p.next_token();
-            let right = p.parse_expression(precedence)?;
+            let right = p.parse_expression(&precedence)?;
             Ok(ast::Expression::Infix(ast::expressions::Infix::new(
                 self.clone(),
                 left,
