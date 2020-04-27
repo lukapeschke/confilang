@@ -68,6 +68,12 @@ impl Token {
             Token::Int(i) => Ok(ast::Expression::Int(ast::expressions::Int::new(*i))),
             Token::Float(f) => Ok(ast::Expression::Float(ast::expressions::Float::new(*f))),
             Token::Bang | Token::Minus => self.parse_prefix_expression(p),
+            Token::True => Ok(ast::Expression::Boolean(ast::expressions::Boolean::new(
+                true,
+            ))),
+            Token::False => Ok(ast::Expression::Boolean(ast::expressions::Boolean::new(
+                false,
+            ))),
             _ => Err(format!("Unsupported prefix token {:?}", self)),
         }
     }

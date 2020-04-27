@@ -229,4 +229,26 @@ mod tests {
             test_parse_x(input, &expected_output);
         }
     }
+
+    #[test]
+    fn test_parse_boolean() {
+        let cases = vec![
+            ("true == true;", Token::Equals, true, true),
+            ("true != false;", Token::Differs, true, false),
+            ("false != false;", Token::Differs, false, false),
+            ("false == true;", Token::Equals, false, true),
+        ];
+        for case in cases {
+            let input = case.0.to_string();
+            let expected_infix = expressions::Infix::new(
+                case.1,
+                Expression::Boolean(expressions::Boolean::new(case.2)),
+                Expression::Boolean(expressions::Boolean::new(case.3)),
+            );
+            let expected_output = vec![Statement::ExpressionStatement(
+                statements::ExpressionStatement::new(Expression::Infix(expected_infix)),
+            )];
+            test_parse_x(input, &expected_output);
+        }
+    }
 }

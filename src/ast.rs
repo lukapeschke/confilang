@@ -12,6 +12,7 @@ pub enum Expression {
     Float(expressions::Float),
     Prefix(expressions::Prefix),
     Infix(expressions::Infix),
+    Boolean(expressions::Boolean),
 }
 
 #[derive(Debug, PartialEq)]
@@ -113,6 +114,17 @@ pub mod expressions {
                 left: Box::new(left),
                 right: Box::new(right),
             }
+        }
+    }
+
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct Boolean {
+        val: bool,
+    }
+
+    impl Boolean {
+        pub fn new(val: bool) -> Boolean {
+            Boolean { val: val }
         }
     }
 }
