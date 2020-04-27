@@ -71,9 +71,37 @@ impl Token {
             _ => Err(format!("Unsupported prefix token {:?}", self)),
         }
     }
-    pub fn parse_infix(&self) -> Result<ast::Expression, String> {
+
+    pub fn parse_infix(
+        &self,
+        p: &mut parser::Parser,
+        left: ast::Expression,
+    ) -> Result<ast::Expression, String> {
+        if let Some(precedence) = p.cur_precedence() {
+            p.next_token();
+            let right = p.parse_expression(precedence)?;
+            Ok(ast::Expression::Infix(ast::expressions::Infix::new(
+                self.clone(),
+                left,
+                right,
+            )))
+        } else {
+            Err("Current token has no precedence".to_string())
+        }
+    }
+
+    // Returns a Token's precedence
+    pub fn precedence(&self) -> Option<parser::Precedence> {
         match self {
-            _ => Err(format!("Unsupported infix token {:?}", self)),
+            Token::Equals => Some(parser::Precedence::Equals),
+            Token::Differs => Some(parser::Precedence::Equals),
+            Token::Lt => Some(parser::Precedence::LessGreater),
+            Token::Gt => Some(parser::Precedence::LessGreater),
+            Token::Plus => Some(parser::Precedence::Sum),
+            Token::Minus => Some(parser::Precedence::Sum),
+            Token::Slash => Some(parser::Precedence::Product),
+            Token::Asterisk => Some(parser::Precedence::Product),
+            _ => None,
         }
     }
 }

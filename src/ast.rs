@@ -5,12 +5,13 @@ pub enum Node {
     Expression(Expression),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
     Identifier(expressions::Identifier),
     Int(expressions::Int),
     Float(expressions::Float),
     Prefix(expressions::Prefix),
+    Infix(expressions::Infix),
 }
 
 #[derive(Debug, PartialEq)]
@@ -50,7 +51,7 @@ pub mod expressions {
     use super::Expression;
     use super::Token;
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct Identifier {
         name: String,
     }
@@ -61,7 +62,7 @@ pub mod expressions {
         }
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct Int {
         val: i32,
     }
@@ -72,7 +73,7 @@ pub mod expressions {
         }
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct Float {
         val: f32,
     }
@@ -83,7 +84,7 @@ pub mod expressions {
         }
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct Prefix {
         tok: Token,
         expr: Box<Expression>,
@@ -94,6 +95,23 @@ pub mod expressions {
             Prefix {
                 tok: tok,
                 expr: Box::new(expr),
+            }
+        }
+    }
+
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct Infix {
+        tok: Token,
+        left: Box<Expression>,
+        right: Box<Expression>,
+    }
+
+    impl Infix {
+        pub fn new(tok: Token, left: Expression, right: Expression) -> Infix {
+            Infix {
+                tok: tok,
+                left: Box::new(left),
+                right: Box::new(right),
             }
         }
     }
