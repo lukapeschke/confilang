@@ -59,6 +59,25 @@ impl Token {
             expr,
         )))
     }
+
+    fn parse_grouped_expression(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
+        // We expect to have a token after the (
+        if let Some(_) = p.next_token() {
+        } else {
+            return Err("Expected a token after LeftParen".to_string());
+        };
+
+        let exp = p.parse_expression_lowest()?;
+
+        // Token after expression should be )
+        if let Some(Token::RightParen) = p.peek_token() {
+            p.next_token();
+            Ok(exp)
+        } else {
+            Err("Expected a LeftParen token after grouped expression".to_string())
+        }
+    }
+
     pub fn parse_prefix(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
         match self {
             Token::Ident(ident) => Ok(ast::Expression::Identifier(
@@ -74,6 +93,7 @@ impl Token {
             Token::False => Ok(ast::Expression::Boolean(ast::expressions::Boolean::new(
                 false,
             ))),
+            Token::LeftParen => self.parse_grouped_expression(p),
             _ => Err(format!("Unsupported prefix token {:?}", self)),
         }
     }
@@ -105,6 +125,51 @@ impl Token {
             Token::Slash => parser::Precedence::Product,
             Token::Asterisk => parser::Precedence::Product,
             _ => parser::Precedence::Lowest,
+        }
+    }
+
+    pub fn repr(&self) -> String {
+        match self {
+            // Identifiers and literals
+            Token::Ident(s) => s.clone(),
+            Token::Int(i) => format!("{}", i),
+            Token::Float(f) => format!("{}", f),
+
+            // Operators
+            Token::Assign => "=".to_string(),
+            Token::Plus => "+".to_string(),
+            Token::Minus => "-".to_string(),
+            Token::Asterisk => "*".to_string(),
+            Token::Slash => "/".to_string(),
+            Token::Bang => "!".to_string(),
+            Token::Lt => "<".to_string(),
+            Token::Gt => ">".to_string(),
+
+            // Delimiters
+            Token::Comma => ",".to_string(),
+            Token::Semicolon => ";".to_string(),
+            Token::LeftParen => "(".to_string(),
+            Token::RightParen => ")".to_string(),
+            Token::LeftBrace => "[".to_string(),
+            Token::RightBrace => "]".to_string(),
+
+            // Keywords
+            Token::Let => "let".to_string(),
+            Token::Fn => "fn".to_string(),
+            Token::True => "true".to_string(),
+            Token::False => "false".to_string(),
+            Token::If => "if".to_string(),
+            Token::Else => "else".to_string(),
+            Token::Return => "return".to_string(),
+            Token::And => "repr".to_string(),
+            Token::Or => "or".to_string(),
+
+            // Multi char operators
+            Token::Equals => "==".to_string(),
+            Token::Differs => "!=".to_string(),
+            Token::Ge => ">=".to_string(),
+            Token::Le => "<=".to_string(),
+            _ => "<Err>".to_string(),
         }
     }
 }

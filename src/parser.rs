@@ -251,4 +251,21 @@ mod tests {
             test_parse_x(input, &expected_output);
         }
     }
+
+    use crate::ast::tests::test_repr;
+
+    #[test]
+    fn test_parse_grouped() {
+        let v = [
+            ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4);"),
+            ("(5 + 5) * 2", "((5 + 5) * 2);"),
+            ("2 / (5 + 5)", "(2 / (5 + 5));"),
+            ("-(5 + 5)", "(-(5 + 5));"),
+            ("!(true == true)", "(!(true == true));"),
+            ("-5*3", "((-5) * 3);"),
+        ];
+        for t in v.iter() {
+            test_repr(t.0, t.1);
+        }
+    }
 }

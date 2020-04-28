@@ -1,5 +1,9 @@
 use crate::token::Token;
 
+pub trait Representable {
+    fn repr(&self) -> String;
+}
+
 pub enum Node {
     Statement(Statement),
     Expression(Expression),
@@ -15,11 +19,34 @@ pub enum Expression {
     Boolean(expressions::Boolean),
 }
 
+impl Representable for Expression {
+    fn repr(&self) -> String {
+        match self {
+            Expression::Identifier(s) => s.repr(),
+            Expression::Int(s) => s.repr(),
+            Expression::Float(s) => s.repr(),
+            Expression::Prefix(s) => s.repr(),
+            Expression::Infix(s) => s.repr(),
+            Expression::Boolean(s) => s.repr(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     Let(statements::Let),
     Return(statements::Return),
     ExpressionStatement(statements::ExpressionStatement),
+}
+
+impl Representable for Statement {
+    fn repr(&self) -> String {
+        match self {
+            Statement::Let(s) => s.repr(),
+            Statement::Return(s) => s.repr(),
+            Statement::ExpressionStatement(s) => s.repr(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -38,18 +65,26 @@ impl Program {
         self.statements.push(s)
     }
 
-    pub fn repr(&self) -> String {
-        format!("{:?}", self.statements)
-    }
-
     pub fn statements(&self) -> &Vec<Statement> {
         &self.statements
+    }
+}
+
+impl Representable for Program {
+    fn repr(&self) -> String {
+        self.statements()
+            .iter()
+            .fold("".to_string(), |acc, x| match acc.chars().count() {
+                0 => x.repr(),
+                _ => format!("{}\n{}", acc, x.repr()),
+            })
     }
 }
 
 pub mod expressions {
 
     use super::Expression;
+    use super::Representable;
     use super::Token;
 
     #[derive(Clone, Debug, PartialEq)]
@@ -60,6 +95,12 @@ pub mod expressions {
     impl Identifier {
         pub fn new(name: String) -> Identifier {
             Identifier { name: name }
+        }
+    }
+
+    impl Representable for Identifier {
+        fn repr(&self) -> String {
+            self.name.clone()
         }
     }
 
@@ -74,6 +115,12 @@ pub mod expressions {
         }
     }
 
+    impl Representable for Int {
+        fn repr(&self) -> String {
+            self.val.to_string()
+        }
+    }
+
     #[derive(Clone, Debug, PartialEq)]
     pub struct Float {
         val: f32,
@@ -82,6 +129,12 @@ pub mod expressions {
     impl Float {
         pub fn new(f: f32) -> Float {
             Float { val: f }
+        }
+    }
+
+    impl Representable for Float {
+        fn repr(&self) -> String {
+            self.val.to_string()
         }
     }
 
@@ -97,6 +150,12 @@ pub mod expressions {
                 tok: tok,
                 expr: Box::new(expr),
             }
+        }
+    }
+
+    impl Representable for Prefix {
+        fn repr(&self) -> String {
+            format!("({}{})", self.tok.repr(), self.expr.repr())
         }
     }
 
@@ -117,6 +176,17 @@ pub mod expressions {
         }
     }
 
+    impl Representable for Infix {
+        fn repr(&self) -> String {
+            format!(
+                "({} {} {})",
+                self.left.repr(),
+                self.tok.repr(),
+                self.right.repr()
+            )
+        }
+    }
+
     #[derive(Clone, Debug, PartialEq)]
     pub struct Boolean {
         val: bool,
@@ -125,6 +195,12 @@ pub mod expressions {
     impl Boolean {
         pub fn new(val: bool) -> Boolean {
             Boolean { val: val }
+        }
+    }
+
+    impl Representable for Boolean {
+        fn repr(&self) -> String {
+            self.val.to_string()
         }
     }
 }
@@ -149,6 +225,12 @@ pub mod statements {
                 ident: ident,
                 value: value,
             }
+        }
+    }
+
+    impl Representable for Let {
+        fn repr(&self) -> String {
+            format!("let {} = {};", self.ident.repr(), self.value.repr())
         }
     }
 
@@ -215,6 +297,12 @@ pub mod statements {
         }
     }
 
+    impl Representable for Return {
+        fn repr(&self) -> String {
+            format!("return {};", self.expr.repr())
+        }
+    }
+
     impl StatementType for Return {
         fn parse(p: &mut parser::Parser) -> Result<Statement, String> {
             let ident = match p.peek_token() {
@@ -242,6 +330,12 @@ pub mod statements {
         expr: Expression,
     }
 
+    impl Representable for ExpressionStatement {
+        fn repr(&self) -> String {
+            format!("{};", self.expr.repr())
+        }
+    }
+
     impl ExpressionStatement {
         pub fn new(expr: Expression) -> ExpressionStatement {
             ExpressionStatement { expr: expr }
@@ -264,5 +358,34 @@ pub mod statements {
                 expression,
             )))
         }
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::Representable;
+    use crate::lexer;
+    use crate::parser;
+
+    pub fn test_repr(input: &str, expected: &str) {
+        let input_str = input.to_string();
+        let mut lex = lexer::Lexer::new(&input_str).unwrap();
+        let mut parser = parser::Parser::new(&mut lex).unwrap();
+        assert_eq!(expected.to_string(), parser.parse_program().unwrap().repr())
+    }
+
+    #[test]
+    fn test_repr_let() {
+        test_repr("let a=b;", "let a = b;");
+    }
+
+    #[test]
+    fn test_repr_return() {
+        test_repr("return toto;", "return toto;");
+    }
+
+    #[test]
+    fn test_repr_expression() {
+        test_repr("toto;", "toto;");
     }
 }

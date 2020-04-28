@@ -1,3 +1,4 @@
+use crate::ast::Representable;
 use crate::lexer;
 use crate::parser;
 
