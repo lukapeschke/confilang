@@ -78,6 +78,51 @@ impl Token {
         }
     }
 
+    fn parse_if(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
+        // // means we expect to skip a parenthesis
+        let has_paren = if let Some(Token::LeftParen) = p.peek_token() {
+            p.next_token();
+            true
+        } else {
+            false
+        };
+        p.next_token();
+        let condition = p.parse_expression_lowest()?;
+
+        if let Some(Token::LeftBrace) = p.peek_token() {
+            p.next_token();
+        } else {
+            return Err(format!(
+                "Expected LeftBrace token, got {:?}",
+                p.peek_token()
+            ));
+        }
+
+        let consequence = p.parse_block_statement()?;
+
+        let alternative = match p.peek_token() {
+            Some(Token::Else) => {
+                p.next_token();
+                if let Some(Token::LeftBrace) = p.peek_token() {
+                    p.next_token();
+                } else {
+                    return Err(format!(
+                        "Expected LeftBrace token, got {:?}",
+                        p.peek_token()
+                    ));
+                }
+                Some(p.parse_block_statement()?)
+            }
+            _ => None,
+        };
+
+        Ok(ast::Expression::If(ast::expressions::If::new(
+            condition,
+            consequence,
+            alternative,
+        )))
+    }
+
     pub fn parse_prefix(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
         match self {
             Token::Ident(ident) => Ok(ast::Expression::Identifier(
@@ -94,6 +139,7 @@ impl Token {
                 false,
             ))),
             Token::LeftParen => self.parse_grouped_expression(p),
+            Token::If => self.parse_if(p),
             _ => Err(format!("Unsupported prefix token {:?}", self)),
         }
     }

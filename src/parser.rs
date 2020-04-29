@@ -64,18 +64,26 @@ impl<'a> Parser<'a> {
     pub fn parse_program(&mut self) -> Result<Program, String> {
         let mut p = Program::new();
         while let Some(tok) = self.next_token() {
-            let statement = self.parse_statement(tok)?;
+            let statement = self.parse_statement(&tok)?;
             p.push(statement);
         }
         Ok(p)
     }
 
-    fn parse_statement(&mut self, token: Token) -> Result<Statement, String> {
+    pub fn parse_statement(&mut self, token: &Token) -> Result<Statement, String> {
         match token {
             Token::Let => statements::Let::parse(self),
             Token::Return => statements::Return::parse(self),
             _ => statements::ExpressionStatement::parse(self),
             // _ => Err(format!("Unmatched token {:?}", token)),
+        }
+    }
+
+    pub fn parse_block_statement(&mut self) -> Result<statements::Block, String> {
+        if let Statement::Block(block) = statements::Block::parse(self)? {
+            Ok(block)
+        } else {
+            Err("Couldn't parse a Block statement".to_string())
         }
     }
 
@@ -257,12 +265,35 @@ mod tests {
     #[test]
     fn test_parse_grouped() {
         let v = [
-            ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4);"),
-            ("(5 + 5) * 2", "((5 + 5) * 2);"),
-            ("2 / (5 + 5)", "(2 / (5 + 5));"),
-            ("-(5 + 5)", "(-(5 + 5));"),
-            ("!(true == true)", "(!(true == true));"),
-            ("-5*3", "((-5) * 3);"),
+            ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
+            ("(5 + 5) * 2", "((5 + 5) * 2)"),
+            ("2 / (5 + 5)", "(2 / (5 + 5))"),
+            ("-(5 + 5)", "(-(5 + 5))"),
+            ("!(true == true)", "(!(true == true))"),
+            ("-5*3", "((-5) * 3)"),
+        ];
+        for t in v.iter() {
+            test_repr(t.0, t.1);
+        }
+    }
+
+    #[test]
+    fn test_if() {
+        let v = [
+            (
+                "if i { true;};",
+                "if (i) {
+true
+}",
+            ),
+            (
+                "if false {2+5} else {toto}",
+                "if (false) {
+(2 + 5)
+} else {
+toto
+}",
+            ),
         ];
         for t in v.iter() {
             test_repr(t.0, t.1);

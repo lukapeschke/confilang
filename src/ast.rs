@@ -17,6 +17,7 @@ pub enum Expression {
     Prefix(expressions::Prefix),
     Infix(expressions::Infix),
     Boolean(expressions::Boolean),
+    If(expressions::If),
 }
 
 impl Representable for Expression {
@@ -28,15 +29,17 @@ impl Representable for Expression {
             Expression::Prefix(s) => s.repr(),
             Expression::Infix(s) => s.repr(),
             Expression::Boolean(s) => s.repr(),
+            Expression::If(s) => s.repr(),
         }
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Let(statements::Let),
     Return(statements::Return),
     ExpressionStatement(statements::ExpressionStatement),
+    Block(statements::Block),
 }
 
 impl Representable for Statement {
@@ -45,11 +48,12 @@ impl Representable for Statement {
             Statement::Let(s) => s.repr(),
             Statement::Return(s) => s.repr(),
             Statement::ExpressionStatement(s) => s.repr(),
+            Statement::Block(s) => s.repr(),
         }
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Program {
     statements: Vec<Statement>,
 }
@@ -83,9 +87,7 @@ impl Representable for Program {
 
 pub mod expressions {
 
-    use super::Expression;
-    use super::Representable;
-    use super::Token;
+    use super::*;
 
     #[derive(Clone, Debug, PartialEq)]
     pub struct Identifier {
@@ -203,6 +205,38 @@ pub mod expressions {
             self.val.to_string()
         }
     }
+
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct If {
+        condition: Box<Expression>,
+        consequence: statements::Block,
+        alternative: Option<statements::Block>,
+    }
+
+    impl If {
+        pub fn new(
+            cond: Expression,
+            cons: statements::Block,
+            alt: Option<statements::Block>,
+        ) -> If {
+            If {
+                condition: Box::new(cond),
+                consequence: cons,
+                alternative: alt,
+            }
+        }
+    }
+
+    impl Representable for If {
+        fn repr(&self) -> String {
+            let output = format!("if ({}) {}", self.condition.repr(), self.consequence.repr());
+            if let Some(alt) = &self.alternative {
+                format!("{} else {}", output, alt.repr())
+            } else {
+                output
+            }
+        }
+    }
 }
 
 pub mod statements {
@@ -213,7 +247,7 @@ pub mod statements {
         fn parse(l: &mut parser::Parser) -> Result<Statement, String>;
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct Let {
         ident: expressions::Identifier,
         value: Expression,
@@ -284,7 +318,7 @@ pub mod statements {
         }
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct Return {
         expr: Expression,
     }
@@ -325,14 +359,14 @@ pub mod statements {
         }
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct ExpressionStatement {
         expr: Expression,
     }
 
     impl Representable for ExpressionStatement {
         fn repr(&self) -> String {
-            format!("{};", self.expr.repr())
+            format!("{}", self.expr.repr())
         }
     }
 
@@ -357,6 +391,52 @@ pub mod statements {
             Ok(Statement::ExpressionStatement(ExpressionStatement::new(
                 expression,
             )))
+        }
+    }
+
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct Block {
+        statements: Vec<Statement>,
+    }
+
+    impl Block {
+        pub fn new(statements: Vec<Statement>) -> Block {
+            Block {
+                statements: statements,
+            }
+        }
+    }
+
+    impl Representable for Block {
+        fn repr(&self) -> String {
+            let body_opt = self.statements.iter().fold(None, |acc, s| match acc {
+                None => Some(format!("\n{}", s.repr())),
+                Some(acc_s) => Some(format!("{};\n{}", acc_s, s.repr())),
+            });
+            // equivalent to {<body>}
+            if let Some(body) = body_opt {
+                format!("{{{}\n}}", body)
+            } else {
+                "".to_string()
+            }
+        }
+    }
+
+    impl StatementType for Block {
+        fn parse(p: &mut parser::Parser) -> Result<Statement, String> {
+            let mut statements = Vec::<Statement>::new();
+            loop {
+                match p.next_token() {
+                    Some(Token::RightBrace) | None => {
+                        break;
+                    }
+                    Some(tok) => {
+                        let stmt = p.parse_statement(&tok)?;
+                        statements.push(stmt);
+                    }
+                }
+            }
+            Ok(Statement::Block(Block::new(statements)))
         }
     }
 }
@@ -386,6 +466,6 @@ pub mod tests {
 
     #[test]
     fn test_repr_expression() {
-        test_repr("toto;", "toto;");
+        test_repr("toto;", "toto");
     }
 }
