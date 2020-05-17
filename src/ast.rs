@@ -18,6 +18,7 @@ pub enum Expression {
     Infix(expressions::Infix),
     Boolean(expressions::Boolean),
     If(expressions::If),
+    Fn(expressions::Fn),
 }
 
 impl Representable for Expression {
@@ -30,6 +31,7 @@ impl Representable for Expression {
             Expression::Infix(s) => s.repr(),
             Expression::Boolean(s) => s.repr(),
             Expression::If(s) => s.repr(),
+            Expression::Fn(s) => s.repr(),
         }
     }
 }
@@ -237,6 +239,34 @@ pub mod expressions {
             }
         }
     }
+
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct Fn {
+        body: statements::Block,
+        params: Vec<Identifier>,
+    }
+
+    impl Fn {
+        pub fn new(body: statements::Block, params: &Vec<Identifier>) -> Fn {
+            Fn {
+                body: body,
+                params: params.to_vec(),
+            }
+        }
+    }
+
+    impl Representable for Fn {
+        fn repr(&self) -> String {
+            let params = self
+                .params
+                .iter()
+                .map(|x| x.repr())
+                .collect::<Vec<String>>()
+                .join(", ");
+
+            format!("fn ({}) {}", params, self.body.repr())
+        }
+    }
 }
 
 pub mod statements {
@@ -413,8 +443,8 @@ pub mod statements {
                 None => Some(format!("\n{}", s.repr())),
                 Some(acc_s) => Some(format!("{};\n{}", acc_s, s.repr())),
             });
-            // equivalent to {<body>}
             if let Some(body) = body_opt {
+                // equivalent to {<body>}
                 format!("{{{}\n}}", body)
             } else {
                 "".to_string()

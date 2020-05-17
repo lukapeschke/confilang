@@ -299,4 +299,20 @@ toto
             test_repr(t.0, t.1);
         }
     }
+
+    #[test]
+    fn test_fn() {
+        let v = [
+            (
+                "fn(x, y) { x + y; }",
+                "fn (x, y) {
+(x + y)
+}",
+            ),
+            ("fn () {return x;}", "fn () {\nreturn x;\n}"),
+        ];
+        for t in v.iter() {
+            test_repr(t.0, t.1);
+        }
+    }
 }

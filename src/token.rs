@@ -123,6 +123,83 @@ impl Token {
         )))
     }
 
+    fn parse_fn_params(
+        &self,
+        p: &mut parser::Parser,
+    ) -> Result<Vec<ast::expressions::Identifier>, String> {
+        let mut output = Vec::new();
+        // let mut output = Vec::new::<ast::expressions::Identifier>();
+
+        while let Some(tok) = p.peek_token() {
+            match tok {
+                // This is required for empty params: fn a() {}
+                Token::RightParen => break,
+                Token::Ident(id) => {
+                    output.push(ast::expressions::Identifier::new(id));
+                    p.next_token();
+
+                    match p.peek_token() {
+                        // Skipping Comma
+                        Some(Token::Comma) => {
+                            p.next_token();
+                        }
+                        // We reached the end of the params
+                        Some(Token::RightParen) => {
+                            break;
+                        }
+                        _ => {
+                            return Err(format!(
+                                "Expected comma or left parenthesis, got {:?}",
+                                p.peek_token()
+                            ))
+                        }
+                    }
+                }
+                _ => {
+                    return Err(format!(
+                        "Expected parameter or right parenthesis, got {:?}",
+                        p.peek_token()
+                    ))
+                }
+            }
+        }
+
+        // Making sure we have a closing parenthesis
+        if let Some(Token::RightParen) = p.peek_token() {
+            p.next_token();
+        } else {
+            return Err(format!(
+                "Expected right parenthesis, got {:?}",
+                p.peek_token()
+            ));
+        }
+
+        Ok(output)
+    }
+
+    fn parse_fn_litteral(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
+        // Skipping first paren
+        if let Some(Token::LeftParen) = p.peek_token() {
+            p.next_token();
+        } else {
+            return Err(format!("Expected left paren, got {:?}", p.peek_token()));
+        }
+
+        let params = self.parse_fn_params(p)?;
+
+        // Skipping left brace
+        if let Some(Token::LeftBrace) = p.peek_token() {
+            p.next_token();
+        } else {
+            return Err(format!("Expected left brace, got {:?}", p.peek_token()));
+        }
+
+        let body = p.parse_block_statement()?;
+        Ok(ast::Expression::Fn(ast::expressions::Fn::new(
+            body, &params,
+        )))
+    }
+
     pub fn parse_prefix(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
         match self {
             Token::Ident(ident) => Ok(ast::Expression::Identifier(
@@ -140,6 +217,7 @@ impl Token {
             ))),
             Token::LeftParen => self.parse_grouped_expression(p),
             Token::If => self.parse_if(p),
+            Token::Fn => self.parse_fn_litteral(p),
             _ => Err(format!("Unsupported prefix token {:?}", self)),
         }
     }
