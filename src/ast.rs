@@ -7,6 +7,7 @@ pub trait Representable {
 pub enum Node {
     Statement(Statement),
     Expression(Expression),
+    Program(Program),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -118,6 +119,10 @@ pub mod expressions {
     impl Int {
         pub fn new(i: i32) -> Int {
             Int { val: i }
+        }
+
+        pub fn value(&self) -> i32 {
+            self.val
         }
     }
 
@@ -404,6 +409,10 @@ pub mod statements {
     impl ExpressionStatement {
         pub fn new(expr: Expression) -> ExpressionStatement {
             ExpressionStatement { expr: expr }
+        }
+
+        pub fn expr(&self) -> Expression {
+            self.expr.clone()
         }
     }
 
