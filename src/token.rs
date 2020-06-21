@@ -70,11 +70,18 @@ impl Token {
         let exp = p.parse_expression_lowest()?;
 
         // Token after expression should be )
-        if let Some(Token::RightParen) = p.peek_token() {
-            p.next_token();
-            Ok(exp)
-        } else {
-            Err("Expected a LeftParen token after grouped expression".to_string())
+        match p.peek_token() {
+            Some(Token::RightParen) => {
+                p.next_token();
+                Ok(exp)
+            }
+            Some(tok) => Err(format!(
+                "Expected a RightParen token after grouped expression, got {:?}",
+                tok
+            )),
+            None => {
+                Err("Expected a RightParen token after grouped expression, got None".to_string())
+            }
         }
     }
 
