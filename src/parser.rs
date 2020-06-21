@@ -149,6 +149,17 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_let_repr() {
+        let v = [
+            ("let a = 4+5", "let a = (4 + 5);"),
+            ("let tutu = toto", "let tutu = toto;"),
+        ];
+        for t in v.iter() {
+            test_repr(t.0, t.1);
+        }
+    }
+
+    #[test]
     fn test_parse_return() {
         test_parse_x(
             "return r;".to_string(),

@@ -339,42 +339,23 @@ pub mod statements {
                 None => Err("Expected Ident token, got None".to_string()),
             }?;
 
-            // Skipping assign;
-            if match p.peek_token() {
-                Some(Token::Assign) => {
-                    p.next_token();
-                    false
-                }
-                _ => true,
-            } {
+            if let Some(Token::Assign) = p.peek_token() {
+                // Moving on "="
+                p.next_token();
+                // Moving to token after "="
+                p.next_token();
+            } else {
                 return Err(format!("Expected Assign token",));
             }
 
-            // FIXME: we only suport "let" x = y;
-            let value = match p.peek_token() {
-                Some(Token::Ident(val)) => {
-                    p.next_token();
-                    Ok(val)
-                }
-                Some(tok) => Err(format!("Expected Ident token, got {:?}", tok)),
-                None => Err("Expected Ident token, got None".to_string()),
-            }?;
+            let value = p.parse_expression_lowest()?;
 
-            // Skipping semicolon
-            if match p.peek_token() {
-                Some(Token::Semicolon) => {
-                    p.next_token();
-                    false
-                }
-                _ => true,
-            } {
-                return Err(format!("Expected Semicolon token",));
+            // Skipping semicolumn
+            if let Some(Token::Semicolon) = p.peek_token() {
+                p.next_token();
             }
 
-            Ok(Statement::Let(Let::new(
-                Identifier::new(ident),
-                Expression::Identifier(Identifier::new(value)),
-            )))
+            Ok(Statement::Let(Let::new(Identifier::new(ident), value)))
         }
     }
 
