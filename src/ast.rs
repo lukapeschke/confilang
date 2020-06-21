@@ -23,6 +23,12 @@ pub enum Expression {
     Call(expressions::Call),
 }
 
+impl Expression {
+    pub fn as_node(&self) -> Node {
+        Node::Expression(self.clone())
+    }
+}
+
 impl Representable for Expression {
     fn repr(&self) -> String {
         match self {
@@ -145,6 +151,10 @@ pub mod expressions {
         pub fn new(f: f32) -> Float {
             Float { val: f }
         }
+
+        pub fn value(&self) -> f32 {
+            self.val
+        }
     }
 
     impl Representable for Float {
@@ -165,6 +175,14 @@ pub mod expressions {
                 tok: tok,
                 expr: Box::new(expr),
             }
+        }
+
+        pub fn token(&self) -> Token {
+            self.tok.clone()
+        }
+
+        pub fn expression(&self) -> Expression {
+            *self.expr.clone()
         }
     }
 
@@ -210,6 +228,10 @@ pub mod expressions {
     impl Boolean {
         pub fn new(val: bool) -> Boolean {
             Boolean { val: val }
+        }
+
+        pub fn value(&self) -> bool {
+            self.val
         }
     }
 

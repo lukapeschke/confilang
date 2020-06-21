@@ -1,4 +1,5 @@
 use crate::ast::Representable;
+use crate::evaluator;
 use crate::lexer;
 use crate::parser;
 
@@ -11,7 +12,11 @@ fn handle_line(line: &String) -> Result<i32, i32> {
         Some(mut lex) => {
             let mut p = parser::Parser::new(&mut lex).unwrap();
             let prog = p.parse_program().unwrap();
-            println!("{:?}", prog.repr());
+            println!("Program parses to: {:?}", prog.repr());
+            println!(
+                "Program evaluates to: {:?}",
+                evaluator::eval(prog.as_node()).unwrap().repr()
+            );
             Ok(0)
         }
         _ => Err(1),
