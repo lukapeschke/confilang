@@ -43,7 +43,7 @@ mod tests {
         let mut lex = Lexer::new(&input).unwrap();
         let mut parser = Parser::new(&mut lex).unwrap();
         let program = parser.parse_program().unwrap();
-        return eval(ast::Node::Program(program)).unwrap();
+        return eval(program.as_node()).unwrap();
     }
 
     #[test]

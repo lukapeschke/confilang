@@ -77,6 +77,10 @@ impl Program {
     pub fn statements(&self) -> &Vec<Statement> {
         &self.statements
     }
+
+    pub fn as_node(&self) -> Node {
+        Node::Program(self.clone())
+    }
 }
 
 impl Representable for Program {
