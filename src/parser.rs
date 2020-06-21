@@ -153,9 +153,20 @@ mod tests {
         test_parse_x(
             "return r;".to_string(),
             &vec![Statement::Return(statements::Return::new(
-                expressions::Identifier::new("r".to_string()),
+                Expression::Identifier(expressions::Identifier::new("r".to_string())),
             ))],
         );
+    }
+
+    #[test]
+    fn test_parse_return_repr() {
+        let v = [
+            ("return 4+5", "return (4 + 5);"),
+            ("return toto", "return toto;"),
+        ];
+        for t in v.iter() {
+            test_repr(t.0, t.1);
+        }
     }
 
     #[test]

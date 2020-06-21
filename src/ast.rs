@@ -384,10 +384,8 @@ pub mod statements {
     }
 
     impl Return {
-        pub fn new(expr: expressions::Identifier) -> Return {
-            Return {
-                expr: Expression::Identifier(expr),
-            }
+        pub fn new(expr: Expression) -> Return {
+            Return { expr: expr }
         }
     }
 
@@ -399,23 +397,15 @@ pub mod statements {
 
     impl StatementType for Return {
         fn parse(p: &mut parser::Parser) -> Result<Statement, String> {
-            let ident = match p.peek_token() {
-                Some(Token::Ident(id)) => {
-                    p.next_token();
-                    Ok(id)
-                }
-                Some(tok) => Err(format!("Expected Ident token, got {:?}", tok)),
-                None => Err("Exepected Ident token, got None".to_string()),
-            }?;
+            // Moving to token after "return" keyword
+            p.next_token();
+            let expr = p.parse_expression_lowest()?;
 
-            match p.peek_token() {
-                Some(Token::Semicolon) => {
-                    p.next_token();
-                    Ok(Statement::Return(Return::new(Identifier::new(ident))))
-                }
-                Some(tok) => Err(format!("Expected Semicolon token, got {:?}", tok)),
-                None => Err("Exepected Ident token, got None".to_string()),
+            if let Some(Token::Semicolon) = p.peek_token() {
+                p.next_token();
             }
+
+            Ok(Statement::Return(Return::new(expr)))
         }
     }
 
