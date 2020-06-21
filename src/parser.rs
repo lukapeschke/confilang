@@ -108,13 +108,12 @@ impl<'a> Parser<'a> {
             // superior to the next token's precedence
             while !self.parse_expression_should_break(prec) {
                 if let Some(token) = self.next_token() {
-                    match token.parse_infix(self, left.clone()) {
-                        Ok(exp) => {
-                            left = exp;
-                        }
-                        Err(_) => {
-                            return Ok(left);
-                        }
+                    // We have an Option<Result<Expression>>. None means that no
+                    // infix parsing functon is associated to the left token
+                    if let Some(expr_res) = token.parse_infix(self, left.clone()) {
+                        left = expr_res?;
+                    } else {
+                        return Ok(left);
                     }
                 }
             }
@@ -311,6 +310,14 @@ toto
             ),
             ("fn () {return x;}", "fn () {\nreturn x;\n}"),
         ];
+        for t in v.iter() {
+            test_repr(t.0, t.1);
+        }
+    }
+
+    #[test]
+    fn test_call() {
+        let v = [("add(1,2*3,4+5)", "add(1, (2 * 3), (4 + 5))")];
         for t in v.iter() {
             test_repr(t.0, t.1);
         }

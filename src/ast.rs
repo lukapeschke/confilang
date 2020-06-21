@@ -19,6 +19,7 @@ pub enum Expression {
     Boolean(expressions::Boolean),
     If(expressions::If),
     Fn(expressions::Fn),
+    Call(expressions::Call),
 }
 
 impl Representable for Expression {
@@ -32,6 +33,7 @@ impl Representable for Expression {
             Expression::Boolean(s) => s.repr(),
             Expression::If(s) => s.repr(),
             Expression::Fn(s) => s.repr(),
+            Expression::Call(s) => s.repr(),
         }
     }
 }
@@ -265,6 +267,34 @@ pub mod expressions {
                 .join(", ");
 
             format!("fn ({}) {}", params, self.body.repr())
+        }
+    }
+
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct Call {
+        callable: Box<Expression>,
+        params: Vec<Expression>,
+    }
+
+    impl Call {
+        pub fn new(callable: Expression, params: &Vec<Expression>) -> Call {
+            Call {
+                callable: Box::new(callable),
+                params: params.to_vec(),
+            }
+        }
+    }
+
+    impl Representable for Call {
+        fn repr(&self) -> String {
+            let params = self
+                .params
+                .iter()
+                .map(|x| x.repr())
+                .collect::<Vec<String>>()
+                .join(", ");
+
+            format!("{}({})", self.callable.repr(), params)
         }
     }
 }

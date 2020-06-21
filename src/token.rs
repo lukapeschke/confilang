@@ -60,6 +60,18 @@ impl Token {
         )))
     }
 
+    fn ensure_right_paren(&self, p: &mut parser::Parser) -> Result<(), String> {
+        if let Some(Token::RightParen) = p.peek_token() {
+            p.next_token();
+            Ok(())
+        } else {
+            Err(format!(
+                "Expected right parenthesis, got {:?}",
+                p.peek_token()
+            ))
+        }
+    }
+
     fn parse_grouped_expression(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
         // We expect to have a token after the (
         if let Some(_) = p.next_token() {
@@ -70,23 +82,12 @@ impl Token {
         let exp = p.parse_expression_lowest()?;
 
         // Token after expression should be )
-        match p.peek_token() {
-            Some(Token::RightParen) => {
-                p.next_token();
-                Ok(exp)
-            }
-            Some(tok) => Err(format!(
-                "Expected a RightParen token after grouped expression, got {:?}",
-                tok
-            )),
-            None => {
-                Err("Expected a RightParen token after grouped expression, got None".to_string())
-            }
-        }
+        self.ensure_right_paren(p)?;
+        Ok(exp)
     }
 
     fn parse_if(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
-        // // means we expect to skip a parenthesis
+        // means we expect to skip a parenthesis
         let has_paren = if let Some(Token::LeftParen) = p.peek_token() {
             p.next_token();
             true
@@ -135,7 +136,6 @@ impl Token {
         p: &mut parser::Parser,
     ) -> Result<Vec<ast::expressions::Identifier>, String> {
         let mut output = Vec::new();
-        // let mut output = Vec::new::<ast::expressions::Identifier>();
 
         while let Some(tok) = p.peek_token() {
             match tok {
@@ -171,15 +171,7 @@ impl Token {
             }
         }
 
-        // Making sure we have a closing parenthesis
-        if let Some(Token::RightParen) = p.peek_token() {
-            p.next_token();
-        } else {
-            return Err(format!(
-                "Expected right parenthesis, got {:?}",
-                p.peek_token()
-            ));
-        }
+        self.ensure_right_paren(p)?;
 
         Ok(output)
     }
@@ -229,7 +221,7 @@ impl Token {
         }
     }
 
-    pub fn parse_infix(
+    fn parse_infix_default(
         &self,
         p: &mut parser::Parser,
         left: ast::Expression,
@@ -244,6 +236,63 @@ impl Token {
         )))
     }
 
+    fn parse_call_params(&self, p: &mut parser::Parser) -> Result<Vec<ast::Expression>, String> {
+        let mut output = Vec::new();
+
+        // No args
+        if let Some(Token::RightParen) = p.peek_token() {
+            p.next_token();
+            return Ok(output);
+        }
+
+        // Moving on token after (
+        p.next_token();
+        output.push(p.parse_expression_lowest()?);
+
+        while let Some(Token::Comma) = p.peek_token() {
+            // Moving on comma
+            p.next_token();
+            // Moving on token after comma
+            p.next_token();
+            output.push(p.parse_expression_lowest()?);
+        }
+
+        self.ensure_right_paren(p)?;
+        Ok(output)
+    }
+
+    fn parse_call(
+        &self,
+        p: &mut parser::Parser,
+        // can be an identifier or a function literal
+        callable: ast::Expression,
+    ) -> Result<ast::Expression, String> {
+        let params = self.parse_call_params(p)?;
+        Ok(ast::Expression::Call(ast::expressions::Call::new(
+            callable, &params,
+        )))
+    }
+
+    pub fn parse_infix(
+        &self,
+        p: &mut parser::Parser,
+        left: ast::Expression,
+    ) -> Option<Result<ast::Expression, String>> {
+        match self {
+            Token::LeftParen => Some(self.parse_call(p, left)),
+            Token::Plus
+            | Token::Minus
+            | Token::Asterisk
+            | Token::Slash
+            | Token::Equals
+            | Token::Differs
+            | Token::Lt
+            | Token::Gt => Some(self.parse_infix_default(p, left)),
+            // No parsing function associated
+            _ => None,
+        }
+    }
+
     // Returns a Token's precedence
     pub fn precedence(&self) -> parser::Precedence {
         match self {
@@ -255,6 +304,7 @@ impl Token {
             Token::Minus => parser::Precedence::Sum,
             Token::Slash => parser::Precedence::Product,
             Token::Asterisk => parser::Precedence::Product,
+            Token::LeftParen => parser::Precedence::Call,
             _ => parser::Precedence::Lowest,
         }
     }
