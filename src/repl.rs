@@ -7,23 +7,28 @@ use std::io::Write;
 
 static PROMPT: &str = "~> ";
 
-fn handle_line(line: &String) -> Result<i32, i32> {
-    match lexer::Lexer::new(line) {
-        Some(mut lex) => {
-            let mut p = parser::Parser::new(&mut lex).unwrap();
-            let prog = p.parse_program().unwrap();
-            println!("Program parses to: {:?}", prog.repr());
-            println!(
-                "Program evaluates to: {:?}",
-                evaluator::eval(prog.as_node()).unwrap().repr()
-            );
-            Ok(0)
+fn handle_line(line: &String) -> Result<(), String> {
+    if let Some(mut lex) = lexer::Lexer::new(line) {
+        let mut parser;
+        if let Some(p) = parser::Parser::new(&mut lex) {
+            parser = p;
+        } else {
+            return Err("Couldn't create parser".to_string());
         }
-        _ => Err(1),
+
+        let prog = parser.parse_program()?;
+        println!("Program parses to: {:?}", prog.repr());
+        println!(
+            "Program evaluates to: {:?}",
+            evaluator::eval(prog.as_node())?.repr()
+        );
+        Ok(())
+    } else {
+        Err("Couldn't create lexer".to_string())
     }
 }
 
-pub fn run() -> Result<i32, i32> {
+pub fn run() -> Result<(), String> {
     let mut buf = String::new();
     loop {
         print!("{}", PROMPT);
@@ -33,15 +38,18 @@ pub fn run() -> Result<i32, i32> {
             // EOF
             Ok(0) => {
                 println!("bye!");
-                return Ok(0);
+                return Ok(());
             }
             // Normal case
             Ok(_) => {
-                handle_line(&buf)?;
+                match handle_line(&buf) {
+                    Err(s) => eprintln!("Error: {}", s),
+                    _ => (),
+                };
             }
             // Oops
-            Err(_) => {
-                return Err(1);
+            Err(e) => {
+                return Err(e.to_string());
             }
         }
     }
