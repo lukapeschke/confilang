@@ -207,6 +207,18 @@ pub mod expressions {
                 right: Box::new(right),
             }
         }
+
+        pub fn token(&self) -> Token {
+            self.tok.clone()
+        }
+
+        pub fn left(&self) -> Expression {
+            *self.left.clone()
+        }
+
+        pub fn right(&self) -> Expression {
+            *self.right.clone()
+        }
     }
 
     impl Representable for Infix {

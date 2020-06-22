@@ -1,6 +1,7 @@
 use crate::ast::*;
 use crate::object::Object;
 use crate::token::Token;
+use std::ops::{Add, Div, Mul, Sub};
 
 fn eval_bang_prefix_expression(obj: Object) -> Result<Object, String> {
     match obj {
@@ -27,12 +28,75 @@ fn eval_prefix_expression(prefix: &expressions::Prefix) -> Result<Object, String
     }
 }
 
+fn basic_op<T>(left: T, right: T, token: &Token) -> Result<T, String>
+where
+    T: Add<Output = T> + Copy + Clone,
+    T: Sub<Output = T> + Copy + Clone,
+    T: Div<Output = T> + Copy + Clone,
+    T: Mul<Output = T> + Copy + Clone,
+{
+    match token {
+        &Token::Plus => Ok(left + right),
+        &Token::Minus => Ok(left - right),
+        &Token::Asterisk => Ok(left * right),
+        &Token::Slash => Ok(left / right),
+        _ => Err("Basic op not implemented".to_string()),
+    }
+}
+
+fn float_op(left: f32, right: f32, token: &Token) -> Result<Object, String> {
+    Ok(Object::Float(basic_op(left, right, token)?))
+}
+
+fn int_op(left: i32, right: i32, token: &Token) -> Result<Object, String> {
+    // TODO: Add support for modulo
+    Ok(Object::Int(basic_op(left, right, token)?))
+}
+
+fn eval_arithmetic_infix_expression(
+    left: &Object,
+    right: &Object,
+    token: &Token,
+) -> Result<Object, String> {
+    match (left, right) {
+        (&Object::Int(l), &Object::Int(r)) => int_op(l, r, token),
+        (&Object::Float(l), &Object::Int(r)) => float_op(l, r as f32, token),
+        (&Object::Int(l), &Object::Float(r)) => float_op(l as f32, r, token),
+        (&Object::Float(l), &Object::Float(r)) => float_op(l, r, token),
+        _ => Err(format!(
+            "Objects {:?} and {:?} not supported for arithmetic operations",
+            left, right,
+        )),
+    }
+}
+
+fn eval_infix_expression(infix: &expressions::Infix) -> Result<Object, String> {
+    let right = eval(infix.right().as_node())?;
+    let left = eval(infix.left().as_node())?;
+    let token = infix.token();
+
+    match (&left, &right) {
+        // https://github.com/rust-lang/rust/issues/54883
+        // (Object::Int(_) | Object::Float(_), Object::Int(_) | Object::Float(_)) => {
+        //     eval_arithmetic_infix_expression(left, right, token)
+        // }
+        (&Object::Int(_), &Object::Int(_))
+        | (&Object::Int(_), &Object::Float(_))
+        | (&Object::Float(_), &Object::Int(_))
+        | (&Object::Float(_), &Object::Float(_)) => {
+            eval_arithmetic_infix_expression(&left, &right, &token)
+        }
+        _ => Err(format!("Infix '{}' not implemented", infix.repr())),
+    }
+}
+
 fn eval_expression(e: &Expression) -> Result<Object, String> {
     match e {
         Expression::Int(i) => Ok(Object::Int(i.value())),
         Expression::Float(f) => Ok(Object::Float(f.value())),
         Expression::Boolean(b) => Ok(Object::Bool(b.value())),
         Expression::Prefix(p) => eval_prefix_expression(p),
+        Expression::Infix(i) => eval_infix_expression(i),
         _ => Err(format!("Expression type {:?} not implemented", e)),
     }
 }
@@ -104,6 +168,7 @@ mod tests {
             ("!!false".to_string(), Object::Bool(false)),
         ]);
     }
+
     #[test]
     fn test_eval_minus() {
         test_multiple_eval(vec![
@@ -117,6 +182,54 @@ mod tests {
             ("-1337.1337".to_string(), Object::Float(-1337.1337)),
             ("--42.42".to_string(), Object::Float(42.42)),
             ("--1337.1337".to_string(), Object::Float(1337.1337)),
+        ]);
+    }
+
+    #[test]
+    fn test_eval_int_op() {
+        test_multiple_eval(vec![
+            ("5".to_string(), Object::Int(5)),
+            ("10".to_string(), Object::Int(10)),
+            ("-5".to_string(), Object::Int(-5)),
+            ("-10".to_string(), Object::Int(-10)),
+            ("5 + 5 + 5 + 5 - 10".to_string(), Object::Int(10)),
+            ("2 * 2 * 2 * 2 * 2".to_string(), Object::Int(32)),
+            ("-50 + 100 + -50".to_string(), Object::Int(0)),
+            ("5 * 2 + 10".to_string(), Object::Int(20)),
+            ("5 + 2 * 10".to_string(), Object::Int(25)),
+            ("20 + 2 * -10".to_string(), Object::Int(0)),
+            ("50 / 2 * 2 + 10".to_string(), Object::Int(60)),
+            ("2 * (5 + 10)".to_string(), Object::Int(30)),
+            ("3 * 3 * 3 + 10".to_string(), Object::Int(37)),
+            ("3 * (3 * 3) + 10".to_string(), Object::Int(37)),
+            (
+                "(5 + 10 * 2 + 15 / 3) * 2 + -10".to_string(),
+                Object::Int(50),
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_eval_float_op() {
+        test_multiple_eval(vec![
+            ("5.0".to_string(), Object::Float(5.0)),
+            ("10.0".to_string(), Object::Float(10.0)),
+            ("-5.0".to_string(), Object::Float(-5.0)),
+            ("-10.0".to_string(), Object::Float(-10.0)),
+            ("5 + 5.0 + 5 + 5 - 10".to_string(), Object::Float(10.0)),
+            ("2 * 2.0 * 2 * 2 * 2".to_string(), Object::Float(32.0)),
+            ("-50.0 + 100 + -50".to_string(), Object::Float(0.0)),
+            ("5 * 2 + 10.0".to_string(), Object::Float(20.0)),
+            ("5 + 2.0 * 10".to_string(), Object::Float(25.0)),
+            ("20.0 + 2 * -10".to_string(), Object::Float(0.0)),
+            ("50 / 2.0 * 2 + 10".to_string(), Object::Float(60.0)),
+            ("2 * (5 + 10.0)".to_string(), Object::Float(30.0)),
+            ("3 * 3 * 3.0 + 10".to_string(), Object::Float(37.0)),
+            ("3 * (3 * 3.0) + 10".to_string(), Object::Float(37.0)),
+            (
+                "(5 + 10.0 * 2 + 15 / 3) * 2 + -10".to_string(),
+                Object::Float(50.0),
+            ),
         ]);
     }
 }
