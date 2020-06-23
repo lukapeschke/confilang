@@ -1,6 +1,7 @@
 use crate::ast::*;
 use crate::object::Object;
 use crate::token::Token;
+use crate::token::Token::*;
 use std::ops::{Add, Div, Mul, Sub};
 
 fn eval_bang_prefix_expression(obj: Object) -> Result<Object, String> {
@@ -22,38 +23,67 @@ fn eval_prefix_expression(prefix: &expressions::Prefix) -> Result<Object, String
     let right = eval(prefix.expression().as_node())?;
     let token = prefix.token();
     match token {
-        Token::Bang => eval_bang_prefix_expression(right),
-        Token::Minus => eval_minus_prefix_expression(right),
+        Bang => eval_bang_prefix_expression(right),
+        Minus => eval_minus_prefix_expression(right),
         _ => Err(format!("Prefix '{}' not implemented", token.repr())),
     }
 }
 
-fn basic_op<T>(left: T, right: T, token: &Token) -> Result<T, String>
+fn basic_bool_op<T>(left: T, right: T, token: &Token) -> Result<bool, String>
 where
-    T: Add<Output = T> + Copy + Clone,
-    T: Sub<Output = T> + Copy + Clone,
-    T: Div<Output = T> + Copy + Clone,
-    T: Mul<Output = T> + Copy + Clone,
+    T: PartialEq + PartialOrd,
 {
     match token {
-        &Token::Plus => Ok(left + right),
-        &Token::Minus => Ok(left - right),
-        &Token::Asterisk => Ok(left * right),
-        &Token::Slash => Ok(left / right),
+        &Equals => Ok(left == right),
+        &Differs => Ok(left != right),
+        &Lt => Ok(left < right),
+        &Gt => Ok(left > right),
+        &Le => Ok(left <= right),
+        &Ge => Ok(left >= right),
+
+        _ => Err("Basic bool op not implemented".to_string()),
+    }
+}
+
+fn basic_arithmetic_op<T>(left: T, right: T, token: &Token) -> Result<T, String>
+where
+    T: Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Copy + Clone,
+{
+    match token {
+        &Plus => Ok(left + right),
+        &Minus => Ok(left - right),
+        &Asterisk => Ok(left * right),
+        &Slash => Ok(left / right),
         _ => Err("Basic op not implemented".to_string()),
     }
 }
 
 fn float_op(left: f32, right: f32, token: &Token) -> Result<Object, String> {
-    Ok(Object::Float(basic_op(left, right, token)?))
+    match token {
+        &Plus | &Minus | &Asterisk | &Slash => {
+            Ok(Object::Float(basic_arithmetic_op(left, right, token)?))
+        }
+        &Equals | &Differs | &Lt | &Gt | &Le | &Ge => {
+            Ok(Object::Bool(basic_bool_op(left, right, token)?))
+        }
+        _ => Err(format!("Token '{}' not supported for Int", token.repr())),
+    }
 }
 
 fn int_op(left: i32, right: i32, token: &Token) -> Result<Object, String> {
     // TODO: Add support for modulo
-    Ok(Object::Int(basic_op(left, right, token)?))
+    match token {
+        &Plus | &Minus | &Asterisk | &Slash => {
+            Ok(Object::Int(basic_arithmetic_op(left, right, token)?))
+        }
+        &Equals | &Differs | &Lt | &Gt | &Le | &Ge => {
+            Ok(Object::Bool(basic_bool_op(left, right, token)?))
+        }
+        _ => Err(format!("Token '{}' not supported for Int", token.repr())),
+    }
 }
 
-fn eval_arithmetic_infix_expression(
+fn eval_numeric_infix_expression(
     left: &Object,
     right: &Object,
     token: &Token,
@@ -84,7 +114,7 @@ fn eval_infix_expression(infix: &expressions::Infix) -> Result<Object, String> {
         | (&Object::Int(_), &Object::Float(_))
         | (&Object::Float(_), &Object::Int(_))
         | (&Object::Float(_), &Object::Float(_)) => {
-            eval_arithmetic_infix_expression(&left, &right, &token)
+            eval_numeric_infix_expression(&left, &right, &token)
         }
         _ => Err(format!("Infix '{}' not implemented", infix.repr())),
     }
@@ -230,6 +260,32 @@ mod tests {
                 "(5 + 10.0 * 2 + 15 / 3) * 2 + -10".to_string(),
                 Object::Float(50.0),
             ),
+        ]);
+    }
+
+    #[test]
+    fn test_eval_bool_op() {
+        test_multiple_eval(vec![
+            ("true".to_string(), Object::Bool(true)),
+            ("false".to_string(), Object::Bool(false)),
+            ("1 < 2".to_string(), Object::Bool(true)),
+            ("1 > 2".to_string(), Object::Bool(false)),
+            ("1 < 1".to_string(), Object::Bool(false)),
+            ("1 > 1".to_string(), Object::Bool(false)),
+            ("1 == 1".to_string(), Object::Bool(true)),
+            ("1 != 1".to_string(), Object::Bool(false)),
+            ("1 == 2".to_string(), Object::Bool(false)),
+            ("1 != 2".to_string(), Object::Bool(true)),
+            ("true".to_string(), Object::Bool(true)),
+            ("false".to_string(), Object::Bool(false)),
+            ("1.0 < 2.0".to_string(), Object::Bool(true)),
+            ("1 > 2.0".to_string(), Object::Bool(false)),
+            ("1 < 1.0".to_string(), Object::Bool(false)),
+            ("1 > 1.0".to_string(), Object::Bool(false)),
+            ("1 == 1.0".to_string(), Object::Bool(true)),
+            ("1 != 1".to_string(), Object::Bool(false)),
+            ("1 == 2".to_string(), Object::Bool(false)),
+            ("1 != 2".to_string(), Object::Bool(true)),
         ]);
     }
 }
