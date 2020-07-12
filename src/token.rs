@@ -97,6 +97,14 @@ impl Token {
         p.next_token();
         let condition = p.parse_expression_lowest()?;
 
+        // See https://github.com/rust-lang/rust/issues/53667
+        // if has_paren && let Some(Token::RightParen) = p.peek_token() {
+        if has_paren {
+            if let Some(Token::RightParen) = p.peek_token() {
+                p.next_token();
+            }
+        }
+
         if let Some(Token::LeftBrace) = p.peek_token() {
             p.next_token();
         } else {
