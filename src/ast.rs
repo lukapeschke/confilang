@@ -272,6 +272,16 @@ pub mod expressions {
                 alternative: alt,
             }
         }
+
+        pub fn condition(&self) -> Expression {
+            *self.condition.clone()
+        }
+        pub fn consequence(&self) -> statements::Block {
+            self.consequence.clone()
+        }
+        pub fn alternative(&self) -> Option<statements::Block> {
+            self.alternative.clone()
+        }
     }
 
     impl Representable for If {
@@ -479,9 +489,15 @@ pub mod statements {
 
     impl Block {
         pub fn new(statements: Vec<Statement>) -> Block {
-            Block {
-                statements: statements,
-            }
+            Block { statements }
+        }
+
+        pub fn statements(&self) -> Vec<Statement> {
+            self.statements.clone()
+        }
+
+        pub fn as_node(&self) -> Node {
+            Node::Statement(Statement::Block(self.clone()))
         }
     }
 

@@ -120,6 +120,17 @@ fn eval_infix_expression(infix: &expressions::Infix) -> Result<Object, String> {
     }
 }
 
+fn eval_if_expression(if_: &expressions::If) -> Result<Object, String> {
+    let cond = eval(if_.condition().as_node())?;
+    if cond.is_true() {
+        eval(if_.consequence().as_node())
+    } else if let Some(alt) = if_.alternative() {
+        eval(alt.as_node())
+    } else {
+        Ok(Object::None)
+    }
+}
+
 fn eval_expression(e: &Expression) -> Result<Object, String> {
     match e {
         Expression::Int(i) => Ok(Object::Int(i.value())),
@@ -127,6 +138,7 @@ fn eval_expression(e: &Expression) -> Result<Object, String> {
         Expression::Boolean(b) => Ok(Object::Bool(b.value())),
         Expression::Prefix(p) => eval_prefix_expression(p),
         Expression::Infix(i) => eval_infix_expression(i),
+        Expression::If(if_) => eval_if_expression(if_),
         _ => Err(format!("Expression type {:?} not implemented", e)),
     }
 }
@@ -134,6 +146,7 @@ fn eval_expression(e: &Expression) -> Result<Object, String> {
 fn eval_statement(statement: &Statement) -> Result<Object, String> {
     match statement {
         Statement::ExpressionStatement(s) => eval_expression(&s.expr()),
+        Statement::Block(s) => eval_statements(&s.statements()),
         _ => Err(format!("Statement type {:?} not implemented", statement)),
     }
 }
@@ -150,7 +163,7 @@ fn eval_statements(statements: &Vec<Statement>) -> Result<Object, String> {
 pub fn eval(node: Node) -> Result<Object, String> {
     match node {
         Node::Program(p) => eval_statements(p.statements()),
-        Node::Expression(e) => eval_expression(&e), //::Int(i) => Object::Int(i),
+        Node::Expression(e) => eval_expression(&e),
         Node::Statement(s) => eval_statement(&s),
     }
 }
@@ -287,5 +300,17 @@ mod tests {
             ("1 == 2".to_string(), Object::Bool(false)),
             ("1 != 2".to_string(), Object::Bool(true)),
         ]);
+    }
+
+    #[test]
+    fn test_eval_conditional() {
+        test_multiple_eval(vec![
+            ("if (true) { 10 }".to_string(), Object::Int(10)),
+            ("if (false) { 10 }".to_string(), Object::None),
+            ("if (1) { 10 }".to_string(), Object::Int(10)),
+            ("if (1 < 2) { 10 }".to_string(), Object::Int(10)),
+            ("if (1 > 2) { 10 }".to_string(), Object::None),
+            ("if (1 > 2) { 10 } else {42}".to_string(), Object::Int(42)),
+        ])
     }
 }
