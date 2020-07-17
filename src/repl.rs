@@ -7,7 +7,7 @@ use std::io::Write;
 
 static PROMPT: &str = "~> ";
 
-fn handle_line(line: &String) -> Result<(), String> {
+fn handle_line(line: &str) -> Result<(), String> {
     if let Some(mut lex) = lexer::Lexer::new(line) {
         let mut parser;
         if let Some(p) = parser::Parser::new(&mut lex) {
@@ -42,10 +42,9 @@ pub fn run() -> Result<(), String> {
             }
             // Normal case
             Ok(_) => {
-                match handle_line(&buf) {
-                    Err(s) => eprintln!("Error: {}", s),
-                    _ => (),
-                };
+                if let Err(s) = handle_line(&buf) {
+                    eprintln!("Error: {}", s)
+                }
             }
             // Oops
             Err(e) => {

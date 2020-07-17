@@ -6,8 +6,6 @@ mod parser;
 mod repl;
 mod token;
 
-use termion;
-
 fn main() {
     let stdin = std::io::stdin();
     if termion::is_tty(&stdin) {

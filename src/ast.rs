@@ -111,7 +111,7 @@ pub mod expressions {
 
     impl Identifier {
         pub fn new(name: String) -> Identifier {
-            Identifier { name: name }
+            Identifier { name }
         }
     }
 
@@ -172,7 +172,7 @@ pub mod expressions {
     impl Prefix {
         pub fn new(tok: Token, expr: Expression) -> Prefix {
             Prefix {
-                tok: tok,
+                tok,
                 expr: Box::new(expr),
             }
         }
@@ -202,7 +202,7 @@ pub mod expressions {
     impl Infix {
         pub fn new(tok: Token, left: Expression, right: Expression) -> Infix {
             Infix {
-                tok: tok,
+                tok,
                 left: Box::new(left),
                 right: Box::new(right),
             }
@@ -239,7 +239,7 @@ pub mod expressions {
 
     impl Boolean {
         pub fn new(val: bool) -> Boolean {
-            Boolean { val: val }
+            Boolean { val }
         }
 
         pub fn value(&self) -> bool {
@@ -302,9 +302,9 @@ pub mod expressions {
     }
 
     impl Fn {
-        pub fn new(body: statements::Block, params: &Vec<Identifier>) -> Fn {
+        pub fn new(body: statements::Block, params: &[Identifier]) -> Fn {
             Fn {
-                body: body,
+                body,
                 params: params.to_vec(),
             }
         }
@@ -330,7 +330,7 @@ pub mod expressions {
     }
 
     impl Call {
-        pub fn new(callable: Expression, params: &Vec<Expression>) -> Call {
+        pub fn new(callable: Expression, params: &[Expression]) -> Call {
             Call {
                 callable: Box::new(callable),
                 params: params.to_vec(),
@@ -368,10 +368,7 @@ pub mod statements {
 
     impl Let {
         pub fn new(ident: expressions::Identifier, value: Expression) -> Let {
-            Let {
-                ident: ident,
-                value: value,
-            }
+            Let { ident, value }
         }
     }
 
@@ -398,7 +395,7 @@ pub mod statements {
                 // Moving to token after "="
                 p.next_token();
             } else {
-                return Err(format!("Expected Assign token",));
+                return Err("Expected Assign token".to_string());
             }
 
             let value = p.parse_expression_lowest()?;
@@ -419,7 +416,7 @@ pub mod statements {
 
     impl Return {
         pub fn new(expr: Expression) -> Return {
-            Return { expr: expr }
+            Return { expr }
         }
     }
 
@@ -450,13 +447,13 @@ pub mod statements {
 
     impl Representable for ExpressionStatement {
         fn repr(&self) -> String {
-            format!("{}", self.expr.repr())
+            self.expr.repr()
         }
     }
 
     impl ExpressionStatement {
         pub fn new(expr: Expression) -> ExpressionStatement {
-            ExpressionStatement { expr: expr }
+            ExpressionStatement { expr }
         }
 
         pub fn expr(&self) -> Expression {
@@ -469,11 +466,8 @@ pub mod statements {
             let expression = p.parse_expression_lowest()?;
 
             // Skipping semicolon
-            match p.peek_token() {
-                Some(Token::Semicolon) => {
-                    p.next_token();
-                }
-                _ => (),
+            if let Some(Token::Semicolon) = p.peek_token() {
+                p.next_token();
             }
 
             Ok(Statement::ExpressionStatement(ExpressionStatement::new(

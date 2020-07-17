@@ -74,8 +74,7 @@ impl Token {
 
     fn parse_grouped_expression(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
         // We expect to have a token after the (
-        if let Some(_) = p.next_token() {
-        } else {
+        if p.next_token().is_none() {
             return Err("Expected a token after LeftParen".to_string());
         };
 

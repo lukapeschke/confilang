@@ -33,13 +33,13 @@ fn basic_bool_op<T>(left: T, right: T, token: &Token) -> Result<bool, String>
 where
     T: PartialEq + PartialOrd,
 {
-    match token {
-        &Equals => Ok(left == right),
-        &Differs => Ok(left != right),
-        &Lt => Ok(left < right),
-        &Gt => Ok(left > right),
-        &Le => Ok(left <= right),
-        &Ge => Ok(left >= right),
+    match *token {
+        Equals => Ok(left == right),
+        Differs => Ok(left != right),
+        Lt => Ok(left < right),
+        Gt => Ok(left > right),
+        Le => Ok(left <= right),
+        Ge => Ok(left >= right),
 
         _ => Err("Basic bool op not implemented".to_string()),
     }
@@ -49,11 +49,11 @@ fn basic_arithmetic_op<T>(left: T, right: T, token: &Token) -> Result<T, String>
 where
     T: Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Copy + Clone,
 {
-    match token {
-        &Plus => Ok(left + right),
-        &Minus => Ok(left - right),
-        &Asterisk => Ok(left * right),
-        &Slash => Ok(left / right),
+    match *token {
+        Plus => Ok(left + right),
+        Minus => Ok(left - right),
+        Asterisk => Ok(left * right),
+        Slash => Ok(left / right),
         _ => Err("Basic op not implemented".to_string()),
     }
 }
@@ -151,7 +151,7 @@ fn eval_statement(statement: &Statement) -> Result<Object, String> {
     }
 }
 
-fn eval_statements(statements: &Vec<Statement>) -> Result<Object, String> {
+fn eval_statements(statements: &[Statement]) -> Result<Object, String> {
     let mut result = Err("No statements".to_string());
 
     for statement in statements {

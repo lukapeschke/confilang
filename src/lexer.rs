@@ -67,12 +67,12 @@ impl<'a> Lexer<'a> {
     }
 
     // Tries to parse a string as an int or a float
-    fn parse_number(s: &String) -> Token {
+    fn parse_number(s: &str) -> Token {
         match s.parse::<i32>() {
             Ok(i) => Token::Int(i),
             Err(_) => match s.parse::<f32>() {
                 Ok(f) => Token::Float(f),
-                Err(_) => Token::Illegal(s.clone()),
+                Err(_) => Token::Illegal(s.to_string()),
             },
         }
     }
@@ -165,7 +165,7 @@ impl<'a> Lexer<'a> {
         })
     }
 
-    pub fn new(text: &'a String) -> Option<Lexer<'a>> {
+    pub fn new(text: &str) -> Option<Lexer> {
         let len = text.chars().count();
         if len < 1 {
             return None;
@@ -173,7 +173,7 @@ impl<'a> Lexer<'a> {
 
         Some(Lexer {
             chars: text.chars().peekable(),
-            len: len,
+            len,
             read_pos: 0,
             ch: 0 as char,
         })
