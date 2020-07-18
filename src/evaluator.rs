@@ -156,7 +156,7 @@ fn eval_block_statement(statements: &[Statement]) -> Result<Object, String> {
     let mut result = Err("No statements".to_string());
 
     for statement in statements {
-        result = eval(Node::Statement(statement.clone()));
+        result = Ok(eval(Node::Statement(statement.clone()))?);
         if let Ok(Object::ReturnValue(o)) = result {
             // Allows to break all nested return statements, whereas
             // eval_program only breaks one level (we lose the information
@@ -171,7 +171,7 @@ fn eval_program(statements: &[Statement]) -> Result<Object, String> {
     let mut result = Err("No statements".to_string());
 
     for statement in statements {
-        result = eval(Node::Statement(statement.clone()));
+        result = Ok(eval(Node::Statement(statement.clone()))?);
         if let Ok(Object::ReturnValue(o)) = result {
             return Ok(*o);
         }
