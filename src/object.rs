@@ -4,6 +4,7 @@ pub enum Object {
     Float(f32),
     Bool(bool),
     Str(String),
+    ReturnValue(Box<Object>),
     None,
 }
 
@@ -15,6 +16,7 @@ impl Object {
             Object::Str(s) => s.to_string(),
             Object::Bool(b) => format!("{}", b),
             Object::None => "None".to_string(),
+            Object::ReturnValue(o) => o.repr(),
         }
     }
 
@@ -25,6 +27,7 @@ impl Object {
             Object::Bool(b) => *b,
             Object::Str(s) => !s.is_empty(),
             Object::None => false,
+            Object::ReturnValue(o) => o.is_true(),
         }
     }
 }

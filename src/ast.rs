@@ -418,6 +418,9 @@ pub mod statements {
         pub fn new(expr: Expression) -> Return {
             Return { expr }
         }
+        pub fn expr(&self) -> Expression {
+            self.expr.clone()
+        }
     }
 
     impl Representable for Return {

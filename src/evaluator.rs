@@ -146,23 +146,42 @@ fn eval_expression(e: &Expression) -> Result<Object, String> {
 fn eval_statement(statement: &Statement) -> Result<Object, String> {
     match statement {
         Statement::ExpressionStatement(s) => eval_expression(&s.expr()),
-        Statement::Block(s) => eval_statements(&s.statements()),
+        Statement::Block(s) => eval_block_statement(&s.statements()),
+        Statement::Return(r) => Ok(Object::ReturnValue(Box::new(eval_expression(&r.expr())?))),
         _ => Err(format!("Statement type {:?} not implemented", statement)),
     }
 }
 
-fn eval_statements(statements: &[Statement]) -> Result<Object, String> {
+fn eval_block_statement(statements: &[Statement]) -> Result<Object, String> {
     let mut result = Err("No statements".to_string());
 
     for statement in statements {
         result = eval(Node::Statement(statement.clone()));
+        if let Ok(Object::ReturnValue(o)) = result {
+            // Allows to break all nested return statements, whereas
+            // eval_program only breaks one level (we lose the information
+            // that the value was returned)
+            return Ok(Object::ReturnValue(o));
+        }
+    }
+    result
+}
+
+fn eval_program(statements: &[Statement]) -> Result<Object, String> {
+    let mut result = Err("No statements".to_string());
+
+    for statement in statements {
+        result = eval(Node::Statement(statement.clone()));
+        if let Ok(Object::ReturnValue(o)) = result {
+            return Ok(*o);
+        }
     }
     result
 }
 
 pub fn eval(node: Node) -> Result<Object, String> {
     match node {
-        Node::Program(p) => eval_statements(p.statements()),
+        Node::Program(p) => eval_program(p.statements()),
         Node::Expression(e) => eval_expression(&e),
         Node::Statement(s) => eval_statement(&s),
     }
@@ -311,6 +330,20 @@ mod tests {
             ("if (1 < 2) { 10 }".to_string(), Object::Int(10)),
             ("if (1 > 2) { 10 }".to_string(), Object::None),
             ("if (1 > 2) { 10 } else {42}".to_string(), Object::Int(42)),
+        ])
+    }
+
+    #[test]
+    fn test_eval_return() {
+        test_multiple_eval(vec![
+            ("return 10;".to_string(), Object::Int(10)),
+            ("return 10; 9;".to_string(), Object::Int(10)),
+            ("return 2 * 5; 9;".to_string(), Object::Int(10)),
+            ("9; return 2 * 5; 9;".to_string(), Object::Int(10)),
+            (
+                "if (10 > 1) {if (10 > 1) {return 10;} return 1;}".to_string(),
+                Object::Int(10),
+            ),
         ])
     }
 }
