@@ -113,6 +113,9 @@ pub mod expressions {
         pub fn new(name: String) -> Identifier {
             Identifier { name }
         }
+        pub fn name(&self) -> String {
+            self.name.clone()
+        }
     }
 
     impl Representable for Identifier {
@@ -369,6 +372,14 @@ pub mod statements {
     impl Let {
         pub fn new(ident: expressions::Identifier, value: Expression) -> Let {
             Let { ident, value }
+        }
+
+        pub fn ident(&self) -> expressions::Identifier {
+            self.ident.clone()
+        }
+
+        pub fn value(&self) -> Expression {
+            self.value.clone()
         }
     }
 
