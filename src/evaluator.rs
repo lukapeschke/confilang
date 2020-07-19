@@ -1,18 +1,21 @@
 use crate::ast::*;
 use crate::environment::Environment;
+use crate::object::Function;
 use crate::object::Object;
 use crate::token::Token;
 use crate::token::Token::*;
+use std::cell::RefCell;
 use std::ops::{Add, Div, Mul, Sub};
+use std::rc::Rc;
 
 pub struct Evaluator {
-    env: Environment,
+    env: Rc<RefCell<Environment>>,
 }
 
 impl Evaluator {
     pub fn new() -> Evaluator {
         Evaluator {
-            env: Environment::new(),
+            env: Rc::new(RefCell::new(Environment::new(None))),
         }
     }
 
@@ -31,8 +34,12 @@ impl Evaluator {
         }
     }
 
-    fn eval_prefix_expression(&mut self, prefix: &expressions::Prefix) -> Result<Object, String> {
-        let right = self.eval(prefix.expression().as_node())?;
+    fn eval_prefix_expression(
+        &mut self,
+        prefix: &expressions::Prefix,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
+        let right = self.eval(prefix.expression().as_node(), env)?;
         let token = prefix.token();
         match token {
             Bang => self.eval_bang_prefix_expression(right),
@@ -113,9 +120,13 @@ impl Evaluator {
         }
     }
 
-    fn eval_infix_expression(&mut self, infix: &expressions::Infix) -> Result<Object, String> {
-        let right = &self.eval(infix.right().as_node())?;
-        let left = &self.eval(infix.left().as_node())?;
+    fn eval_infix_expression(
+        &mut self,
+        infix: &expressions::Infix,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
+        let right = &self.eval(infix.right().as_node(), env)?;
+        let left = &self.eval(infix.left().as_node(), env)?;
         let token = infix.token();
 
         match (&left, &right) {
@@ -133,59 +144,139 @@ impl Evaluator {
         }
     }
 
-    fn eval_if_expression(&mut self, if_: &expressions::If) -> Result<Object, String> {
-        let cond = self.eval(if_.condition().as_node())?;
+    fn eval_if_expression(
+        &mut self,
+        if_: &expressions::If,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
+        let cond = self.eval(if_.condition().as_node(), env)?;
         if cond.is_true() {
-            self.eval(if_.consequence().as_node())
+            self.eval(if_.consequence().as_node(), env)
         } else if let Some(alt) = if_.alternative() {
-            self.eval(alt.as_node())
+            self.eval(alt.as_node(), env)
         } else {
             Ok(Object::None)
         }
     }
 
-    fn eval_identifier(&mut self, id: &expressions::Identifier) -> Result<Object, String> {
+    fn eval_identifier(
+        &mut self,
+        id: &expressions::Identifier,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
+        let local_env = match env {
+            Some(ev) => ev,
+            None => &self.env,
+        };
         let key = id.name();
-        if let Some(obj) = self.env.get(&key) {
+        if let Some(obj) = local_env.borrow().get(&key) {
             return Ok(obj);
         }
         Err(format!("Identifier '{}' not found", key))
     }
 
-    fn eval_expression(&mut self, e: &Expression) -> Result<Object, String> {
+    fn eval_fn(&mut self, fn_: &expressions::Fn, env: &Option<Rc<RefCell<Environment>>>) -> Object {
+        let local_env = match env {
+            Some(ev) => ev,
+            None => &self.env,
+        };
+        Object::Function(Function::new(local_env, &fn_.params(), fn_.body()))
+    }
+
+    fn eval_expressions(
+        &mut self,
+        expressions: &Vec<Expression>,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Vec<Object>, String> {
+        let mut output = Vec::new();
+        for exp in expressions.iter() {
+            output.push(self.eval_expression(exp, env)?)
+        }
+        Ok(output)
+    }
+
+    fn new_fn_env(&self, fn_: &Function, args: &Vec<Object>) -> Environment {
+        let mut env = Environment::new(Some(fn_.env()));
+        let arg_names = fn_.params();
+        for (idx, arg) in args.iter().enumerate() {
+            env.set(&arg_names[idx].name(), arg.clone());
+        }
+        env
+    }
+
+    fn eval_call(
+        &mut self,
+        c: &expressions::Call,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
+        let obj = self.eval(c.callable().as_node(), env)?;
+        if let Object::Function(fn_) = obj {
+            let args = self.eval_expressions(&c.params(), env)?;
+            let fn_env = Rc::new(RefCell::new(self.new_fn_env(&fn_, &args)));
+            let evaluated = self.eval_block_statement(&fn_.body().statements(), &Some(fn_env))?;
+            Ok(match evaluated {
+                // Here we "unwrap" the ReturnValue, so that we don't break
+                // several functions
+                Object::ReturnValue(o) => *o,
+                _ => evaluated,
+            })
+        } else {
+            Err(format!("Object '{:?}' is not a function", obj))
+        }
+    }
+
+    fn eval_expression(
+        &mut self,
+        e: &Expression,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
         match e {
             Expression::Int(i) => Ok(Object::Int(i.value())),
             Expression::Float(f) => Ok(Object::Float(f.value())),
             Expression::Boolean(b) => Ok(Object::Bool(b.value())),
-            Expression::Prefix(p) => self.eval_prefix_expression(p),
-            Expression::Infix(i) => self.eval_infix_expression(i),
-            Expression::If(if_) => self.eval_if_expression(if_),
-            Expression::Identifier(id) => self.eval_identifier(id),
-            _ => Err(format!("Expression type {:?} not implemented", e)),
+            Expression::Prefix(p) => self.eval_prefix_expression(p, env),
+            Expression::Infix(i) => self.eval_infix_expression(i, env),
+            Expression::If(if_) => self.eval_if_expression(if_, env),
+            Expression::Identifier(id) => self.eval_identifier(id, env),
+            Expression::Fn(f) => Ok(self.eval_fn(f, env)),
+            Expression::Call(c) => self.eval_call(c, env),
         }
     }
-    fn eval_let_statement(&mut self, s: &statements::Let) -> Result<Object, String> {
-        let val = self.eval(s.value().as_node())?;
-        self.env.set(&s.ident().name(), val);
+
+    fn eval_let_statement(
+        &mut self,
+        s: &statements::Let,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
+        let val = self.eval(s.value().as_node(), env)?;
+        self.env.borrow_mut().set(&s.ident().name(), val);
         Ok(Object::None)
     }
 
-    fn eval_statement(&mut self, statement: &Statement) -> Result<Object, String> {
+    fn eval_statement(
+        &mut self,
+        statement: &Statement,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
         match statement {
-            Statement::ExpressionStatement(s) => self.eval_expression(&s.expr()),
-            Statement::Block(s) => self.eval_block_statement(&s.statements()),
+            Statement::ExpressionStatement(s) => self.eval_expression(&s.expr(), env),
+            Statement::Block(s) => self.eval_block_statement(&s.statements(), env),
             Statement::Return(r) => Ok(Object::ReturnValue(Box::new(
-                self.eval_expression(&r.expr())?,
+                self.eval_expression(&r.expr(), env)?,
             ))),
-            Statement::Let(l) => self.eval_let_statement(l),
+            Statement::Let(l) => self.eval_let_statement(l, env),
         }
     }
 
-    fn eval_block_statement(&mut self, statements: &[Statement]) -> Result<Object, String> {
+    fn eval_block_statement(
+        &mut self,
+        statements: &[Statement],
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
         let mut result = Err("No statements".to_string());
 
         for statement in statements {
-            result = Ok(self.eval(Node::Statement(statement.clone()))?);
+            result = Ok(self.eval(Node::Statement(statement.clone()), env)?);
             if let Ok(Object::ReturnValue(o)) = result {
                 // Allows to break all nested return statements, whereas
                 // eval_program only breaks one level (we lose the information
@@ -196,11 +287,15 @@ impl Evaluator {
         result
     }
 
-    fn eval_program(&mut self, statements: &[Statement]) -> Result<Object, String> {
+    fn eval_program(
+        &mut self,
+        statements: &[Statement],
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
         let mut result = Err("No statements".to_string());
 
         for statement in statements {
-            result = Ok(self.eval(Node::Statement(statement.clone()))?);
+            result = Ok(self.eval(Node::Statement(statement.clone()), env)?);
             if let Ok(Object::ReturnValue(o)) = result {
                 return Ok(*o);
             }
@@ -208,11 +303,15 @@ impl Evaluator {
         result
     }
 
-    pub fn eval(&mut self, node: Node) -> Result<Object, String> {
+    pub fn eval(
+        &mut self,
+        node: Node,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
         match node {
-            Node::Program(p) => self.eval_program(p.statements()),
-            Node::Expression(e) => self.eval_expression(&e),
-            Node::Statement(s) => self.eval_statement(&s),
+            Node::Program(p) => self.eval_program(p.statements(), env),
+            Node::Expression(e) => self.eval_expression(&e, env),
+            Node::Statement(s) => self.eval_statement(&s, env),
         }
     }
 }
@@ -225,7 +324,7 @@ mod tests {
     use crate::parser::Parser;
 
     fn eval(node: Node) -> Result<Object, String> {
-        Evaluator::new().eval(node)
+        Evaluator::new().eval(node, &None)
     }
 
     fn test_eval(input: String) -> Object {
@@ -237,6 +336,7 @@ mod tests {
 
     fn test_multiple_eval(cases: Vec<(String, Object)>) {
         for case in cases {
+            println!("Testing with {}", case.0);
             assert_eq!(test_eval(case.0), case.1);
         }
     }
@@ -390,6 +490,49 @@ mod tests {
                 "let a = 5; let b = a; let c = a + b + 5; c;".to_string(),
                 Object::Int(15),
             ),
+        ])
+    }
+
+    #[test]
+    fn test_eval_fn() {
+        test_multiple_eval(vec![
+            (
+                "let a = 5; let b = fn() { return a * 2 }; b()".to_string(),
+                Object::Int(10),
+            ),
+            (
+                "let fac = fn(x) {if (x < 1) {return x} return x + fac(x - 1)}; fac(3)".to_string(),
+                Object::Int(6),
+            ),
+            (
+                "let a = 5; let b = fn(a) { return a * 2 }; b(10)".to_string(),
+                Object::Int(20),
+            ),
+            (
+                "let a = 5; let b = fn(a) { return a * 2 }; b(10); a".to_string(),
+                Object::Int(5),
+            ),
+            (
+                "let identity = fn(x) { x; }; identity(5);".to_string(),
+                Object::Int(5),
+            ),
+            (
+                "let identity = fn(x) { return x; }; identity(5);".to_string(),
+                Object::Int(5),
+            ),
+            (
+                "let double = fn(x) { x * 2; }; double(5);".to_string(),
+                Object::Int(10),
+            ),
+            (
+                "let add = fn(x, y) { x + y; }; add(5, 5);".to_string(),
+                Object::Int(10),
+            ),
+            (
+                "let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));".to_string(),
+                Object::Int(20),
+            ),
+            ("fn(x) { x; }(5)".to_string(), Object::Int(5)),
         ])
     }
 }

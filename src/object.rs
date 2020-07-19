@@ -1,3 +1,43 @@
+use crate::ast::{expressions, statements, Representable};
+use crate::environment::Environment;
+use std::cell::RefCell;
+use std::rc::Rc;
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Function {
+    env: Rc<RefCell<Environment>>,
+    fn_: expressions::Fn,
+}
+
+impl Function {
+    pub fn new(
+        env: &Rc<RefCell<Environment>>,
+        params: &[expressions::Identifier],
+        body: statements::Block,
+    ) -> Function {
+        Function {
+            env: Rc::clone(&env),
+            fn_: expressions::Fn::new(body, params),
+        }
+    }
+
+    pub fn repr(&self) -> String {
+        self.fn_.repr()
+    }
+
+    pub fn params(&self) -> Vec<expressions::Identifier> {
+        self.fn_.params()
+    }
+
+    pub fn body(&self) -> statements::Block {
+        self.fn_.body()
+    }
+
+    pub fn env(&self) -> &Rc<RefCell<Environment>> {
+        &self.env
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Object {
     Int(i32),
@@ -5,6 +45,7 @@ pub enum Object {
     Bool(bool),
     Str(String),
     ReturnValue(Box<Object>),
+    Function(Function),
     None,
 }
 
@@ -17,6 +58,7 @@ impl Object {
             Object::Bool(b) => format!("{}", b),
             Object::None => "None".to_string(),
             Object::ReturnValue(o) => o.repr(),
+            Object::Function(f) => f.repr(),
         }
     }
 
@@ -28,6 +70,7 @@ impl Object {
             Object::Str(s) => !s.is_empty(),
             Object::None => false,
             Object::ReturnValue(o) => o.is_true(),
+            Object::Function(_) => true,
         }
     }
 }

@@ -311,6 +311,14 @@ pub mod expressions {
                 params: params.to_vec(),
             }
         }
+
+        pub fn body(&self) -> statements::Block {
+            self.body.clone()
+        }
+
+        pub fn params(&self) -> Vec<Identifier> {
+            self.params.clone()
+        }
     }
 
     impl Representable for Fn {
@@ -338,6 +346,14 @@ pub mod expressions {
                 callable: Box::new(callable),
                 params: params.to_vec(),
             }
+        }
+
+        pub fn callable(&self) -> Expression {
+            *self.callable.clone()
+        }
+
+        pub fn params(&self) -> Vec<Expression> {
+            self.params.clone()
         }
     }
 

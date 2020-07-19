@@ -30,7 +30,7 @@ impl Repl {
             println!("Program parses to: {:?}", prog.repr());
             println!(
                 "Program evaluates to: {:?}",
-                self.ev.eval(prog.as_node())?.repr()
+                self.ev.eval(prog.as_node(), &None)?.repr()
             );
             Ok(())
         } else {
