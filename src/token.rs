@@ -294,6 +294,8 @@ impl Token {
             | Token::Equals
             | Token::Differs
             | Token::Lt
+            | Token::Le
+            | Token::Ge
             | Token::Gt => Some(self.parse_infix_default(p, left)),
             // No parsing function associated
             _ => None,
@@ -307,6 +309,8 @@ impl Token {
             Token::Differs => parser::Precedence::Equals,
             Token::Lt => parser::Precedence::LessGreater,
             Token::Gt => parser::Precedence::LessGreater,
+            Token::Le => parser::Precedence::LessGreater,
+            Token::Ge => parser::Precedence::LessGreater,
             Token::Plus => parser::Precedence::Sum,
             Token::Minus => parser::Precedence::Sum,
             Token::Slash => parser::Precedence::Product,
