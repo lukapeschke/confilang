@@ -1,4 +1,3 @@
-use crate::ast::Representable;
 use crate::evaluator;
 use crate::lexer;
 use crate::parser;
@@ -9,16 +8,21 @@ static PROMPT: &str = "~> ";
 
 struct Repl {
     ev: evaluator::Evaluator,
+    debug: bool,
 }
 
 impl Repl {
-    pub fn new() -> Repl {
+    pub fn new(debug: bool) -> Repl {
         Repl {
             ev: evaluator::Evaluator::new(),
+            debug,
         }
     }
     fn handle_line(&mut self, line: &str) -> Result<(), String> {
         if let Some(mut lex) = lexer::Lexer::new(line) {
+            if self.debug {
+                println!("Tokens are {:#?}", lex.get_all_tokens())
+            }
             let mut parser;
             if let Some(p) = parser::Parser::new(&mut lex) {
                 parser = p;
@@ -27,11 +31,11 @@ impl Repl {
             }
 
             let prog = parser.parse_program()?;
-            println!("Program parses to: {:?}", prog.repr());
-            println!(
-                "Program evaluates to: {:?}",
-                self.ev.eval(prog.as_node(), &None)?.repr()
-            );
+            if self.debug {
+                println!("Program parses to: {:?}", prog);
+            }
+            let result = self.ev.eval(prog.as_node(), &None)?.repr();
+            println!("Program evaluates to: {:?}", result);
             Ok(())
         } else {
             Err("Couldn't create lexer".to_string())
@@ -65,6 +69,6 @@ impl Repl {
     }
 }
 
-pub fn run() -> Result<(), String> {
-    Repl::new().run()
+pub fn run(debug: bool) -> Result<(), String> {
+    Repl::new(debug).run()
 }

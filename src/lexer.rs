@@ -178,6 +178,14 @@ impl<'a> Lexer<'a> {
             ch: 0 as char,
         })
     }
+
+    pub fn get_all_tokens(&mut self) -> Vec<Token> {
+        let mut output = Vec::new();
+        while let Some(tok) = self.next_token() {
+            output.push(tok.clone())
+        }
+        output
+    }
 }
 
 #[cfg(test)]
