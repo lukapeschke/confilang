@@ -120,6 +120,18 @@ impl Evaluator {
         }
     }
 
+    fn eval_str_infix_expression(
+        &self,
+        left: &str,
+        right: &str,
+        token: &Token,
+    ) -> Result<Object, String> {
+        match token {
+            Token::Plus => Ok(Object::Str(format!("{}{}", left, right))),
+            _ => Err(format!("Unsupported infix token {} for str", token.repr())),
+        }
+    }
+
     fn eval_infix_expression(
         &mut self,
         infix: &expressions::Infix,
@@ -140,6 +152,7 @@ impl Evaluator {
             | (&Object::Float(_), &Object::Float(_)) => {
                 self.eval_numeric_infix_expression(&left, &right, &token)
             }
+            (&Object::Str(l), &Object::Str(r)) => self.eval_str_infix_expression(l, r, &token),
             _ => Err(format!("Infix '{}' not implemented", infix.repr())),
         }
     }
@@ -185,7 +198,7 @@ impl Evaluator {
 
     fn eval_expressions(
         &mut self,
-        expressions: &Vec<Expression>,
+        expressions: &[Expression],
         env: &Option<Rc<RefCell<Environment>>>,
     ) -> Result<Vec<Object>, String> {
         let mut output = Vec::new();
@@ -195,7 +208,7 @@ impl Evaluator {
         Ok(output)
     }
 
-    fn new_fn_env(&self, fn_: &Function, args: &Vec<Object>) -> Environment {
+    fn new_fn_env(&self, fn_: &Function, args: &[Object]) -> Environment {
         let mut env = Environment::new(Some(fn_.env()));
         let arg_names = fn_.params();
         for (idx, arg) in args.iter().enumerate() {
@@ -233,6 +246,7 @@ impl Evaluator {
         match e {
             Expression::Int(i) => Ok(Object::Int(i.value())),
             Expression::Float(f) => Ok(Object::Float(f.value())),
+            Expression::Str(s) => Ok(Object::Str(s.value())),
             Expression::Boolean(b) => Ok(Object::Bool(b.value())),
             Expression::Prefix(p) => self.eval_prefix_expression(p, env),
             Expression::Infix(i) => self.eval_infix_expression(i, env),
@@ -480,6 +494,7 @@ mod tests {
             ),
         ])
     }
+
     #[test]
     fn test_eval_let() {
         test_multiple_eval(vec![
@@ -489,6 +504,20 @@ mod tests {
             (
                 "let a = 5; let b = a; let c = a + b + 5; c;".to_string(),
                 Object::Int(15),
+            ),
+        ])
+    }
+
+    #[test]
+    fn test_eval_str() {
+        test_multiple_eval(vec![
+            (
+                "let a = \"hello\"; a;".to_string(),
+                Object::Str("hello".to_string()),
+            ),
+            (
+                "\"hello\" + \" \" + \"world\"".to_string(),
+                Object::Str("hello world".to_string()),
             ),
         ])
     }

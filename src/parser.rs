@@ -344,4 +344,15 @@ toto
             test_repr(t.0, t.1);
         }
     }
+
+    #[test]
+    fn test_str() {
+        let v = [
+            ("\"hello\"", "\"hello\""),
+            ("\"hello world with spaces\"", "\"hello world with spaces\""),
+        ];
+        for t in v.iter() {
+            test_repr(t.0, t.1);
+        }
+    }
 }

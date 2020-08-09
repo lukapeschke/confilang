@@ -11,6 +11,7 @@ pub enum Token {
     Ident(String),
     Int(i32),
     Float(f32),
+    Str(String),
 
     // Operators
     Assign,
@@ -214,6 +215,7 @@ impl Token {
             )),
             Token::Int(i) => Ok(ast::Expression::Int(ast::expressions::Int::new(*i))),
             Token::Float(f) => Ok(ast::Expression::Float(ast::expressions::Float::new(*f))),
+            Token::Str(s) => Ok(ast::Expression::Str(ast::expressions::Str::new(s))),
             Token::Bang | Token::Minus => self.parse_prefix_expression(p),
             Token::True => Ok(ast::Expression::Boolean(ast::expressions::Boolean::new(
                 true,
@@ -353,7 +355,7 @@ impl Token {
             Token::If => "if".to_string(),
             Token::Else => "else".to_string(),
             Token::Return => "return".to_string(),
-            Token::And => "repr".to_string(),
+            Token::And => "and".to_string(),
             Token::Or => "or".to_string(),
 
             // Multi char operators

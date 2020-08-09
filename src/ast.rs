@@ -15,6 +15,7 @@ pub enum Expression {
     Identifier(expressions::Identifier),
     Int(expressions::Int),
     Float(expressions::Float),
+    Str(expressions::Str),
     Prefix(expressions::Prefix),
     Infix(expressions::Infix),
     Boolean(expressions::Boolean),
@@ -35,6 +36,7 @@ impl Representable for Expression {
             Expression::Identifier(s) => s.repr(),
             Expression::Int(s) => s.repr(),
             Expression::Float(s) => s.repr(),
+            Expression::Str(s) => s.repr(),
             Expression::Prefix(s) => s.repr(),
             Expression::Infix(s) => s.repr(),
             Expression::Boolean(s) => s.repr(),
@@ -163,6 +165,27 @@ pub mod expressions {
     impl Representable for Float {
         fn repr(&self) -> String {
             self.val.to_string()
+        }
+    }
+
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct Str {
+        s: String,
+    }
+
+    impl Str {
+        pub fn new(s: &String) -> Str {
+            Str { s: s.clone() }
+        }
+
+        pub fn value(&self) -> String {
+            self.s.clone()
+        }
+    }
+
+    impl Representable for Str {
+        fn repr(&self) -> String {
+            format!("\"{}\"", self.s)
         }
     }
 

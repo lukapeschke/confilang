@@ -76,6 +76,22 @@ impl<'a> Lexer<'a> {
             },
         }
     }
+
+    // TODO: Handle \"
+    fn read_str(&mut self) -> Token {
+        let mut output = String::new();
+        while let Some(&ch) = self.peek_char() {
+            self.read_char();
+            match ch {
+                '"' => {
+                    return Token::Str(output);
+                }
+                _ => output.push(ch),
+            }
+        }
+        Token::Eof
+    }
+
     fn handle_ident(&mut self, c: char) -> Token {
         if Lexer::is_ident_ch(&c) {
             let ident: String = self.read_ident(c);
@@ -161,6 +177,10 @@ impl<'a> Lexer<'a> {
             ')' => Token::RightParen,
             '{' => Token::LeftBrace,
             '}' => Token::RightBrace,
+
+            // Strings
+            '"' => self.read_str(),
+
             _ => self.handle_ident(c),
         })
     }
@@ -279,6 +299,22 @@ mod tests {
                 Token::Ident("f".to_string()),
                 Token::Assign,
                 Token::Float(10.5),
+                Token::Semicolon,
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_str() {
+        let input = "let a = \"hello\";".to_string();
+        let mut lex = Lexer::new(&input).unwrap();
+        assert_eq!(
+            get_all_tokens(&mut lex),
+            vec![
+                Token::Let,
+                Token::Ident("a".to_string()),
+                Token::Assign,
+                Token::Str("hello".to_string()),
                 Token::Semicolon,
             ]
         )

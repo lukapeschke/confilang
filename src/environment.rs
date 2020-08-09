@@ -32,7 +32,7 @@ impl Environment {
         }
     }
 
-    pub fn repr(&self) -> String {
+    pub fn _repr(&self) -> String {
         let keys_repr = self
             .map
             .keys()
@@ -42,7 +42,7 @@ impl Environment {
             });
         let env_repr = format!("Env({})", keys_repr);
         match self.parent.as_ref() {
-            Some(p) => format!("{} -> {}", p.borrow().repr(), env_repr),
+            Some(p) => format!("{} -> {}", p.borrow()._repr(), env_repr),
             None => env_repr,
         }
     }
