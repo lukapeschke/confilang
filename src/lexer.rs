@@ -77,7 +77,6 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    // TODO: Handle \"
     fn read_str(&mut self) -> Token {
         let mut output = String::new();
         while let Some(&ch) = self.peek_char() {
@@ -85,6 +84,20 @@ impl<'a> Lexer<'a> {
             match ch {
                 '"' => {
                     return Token::Str(output);
+                }
+                '\\' => {
+                    self.read_char();
+                    if let Some(escaped_ch) = self.peek_char() {
+                        output.push(match escaped_ch {
+                            'n' => {
+                                self.read_char();
+                                '\n'
+                            }
+                            _ => *escaped_ch,
+                        });
+                    } else {
+                        return Token::Eof;
+                    }
                 }
                 _ => output.push(ch),
             }
@@ -317,6 +330,36 @@ mod tests {
                 Token::Str("hello".to_string()),
                 Token::Semicolon,
             ]
+        )
+    }
+
+    #[test]
+    fn lex_escaped_str() {
+        let input = "\"he\\llo\"".to_string();
+        let mut lex = Lexer::new(&input).unwrap();
+        assert_eq!(
+            get_all_tokens(&mut lex),
+            vec![Token::Str("hello".to_string())]
+        )
+    }
+
+    #[test]
+    fn lex_escaped_str_carriage_return() {
+        let input = "\"he\\\\nllo\"".to_string();
+        let mut lex = Lexer::new(&input).unwrap();
+        assert_eq!(
+            get_all_tokens(&mut lex),
+            vec![Token::Str("he\nllo".to_string())]
+        )
+    }
+
+    #[test]
+    fn lex_escaped_backslash_str() {
+        let input = "\"he\\\\\\llo\"".to_string();
+        let mut lex = Lexer::new(&input).unwrap();
+        assert_eq!(
+            get_all_tokens(&mut lex),
+            vec![Token::Str("he\\llo".to_string())]
         )
     }
 
