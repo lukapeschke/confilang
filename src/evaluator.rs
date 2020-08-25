@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::builtins;
 use crate::environment::Environment;
 use crate::object::Function;
 use crate::object::Object;
@@ -7,7 +8,6 @@ use crate::token::Token::*;
 use std::cell::RefCell;
 use std::ops::{Add, Div, Mul, Sub};
 use std::rc::Rc;
-
 pub struct Evaluator {
     env: Rc<RefCell<Environment>>,
 }
@@ -185,6 +185,9 @@ impl Evaluator {
         if let Some(obj) = local_env.borrow().get(&key) {
             return Ok(obj);
         }
+        if let Some(func) = builtins::get(&key) {
+            return Ok(Object::BuiltIn(func));
+        }
         Err(format!("Identifier '{}' not found", key))
     }
 
@@ -223,18 +226,21 @@ impl Evaluator {
         env: &Option<Rc<RefCell<Environment>>>,
     ) -> Result<Object, String> {
         let obj = self.eval(c.callable().as_node(), env)?;
-        if let Object::Function(fn_) = obj {
-            let args = self.eval_expressions(&c.params(), env)?;
-            let fn_env = Rc::new(RefCell::new(self.new_fn_env(&fn_, &args)));
-            let evaluated = self.eval_block_statement(&fn_.body().statements(), &Some(fn_env))?;
-            Ok(match evaluated {
-                // Here we "unwrap" the ReturnValue, so that we don't break
-                // several functions
-                Object::ReturnValue(o) => *o,
-                _ => evaluated,
-            })
-        } else {
-            Err(format!("Object '{:?}' is not a function", obj))
+        let args = self.eval_expressions(&c.params(), env)?;
+        match obj {
+            Object::Function(fn_) => {
+                let fn_env = Rc::new(RefCell::new(self.new_fn_env(&fn_, &args)));
+                let evaluated =
+                    self.eval_block_statement(&fn_.body().statements(), &Some(fn_env))?;
+                Ok(match evaluated {
+                    // Here we "unwrap" the ReturnValue, so that we don't break
+                    // several functions
+                    Object::ReturnValue(o) => *o,
+                    _ => evaluated,
+                })
+            }
+            Object::BuiltIn(b) => b.call(&args),
+            _ => Err(format!("Object '{:?}' is not a function", obj)),
         }
     }
 
@@ -562,6 +568,14 @@ mod tests {
                 Object::Int(20),
             ),
             ("fn(x) { x; }(5)".to_string(), Object::Int(5)),
+        ])
+    }
+
+    #[test]
+    fn test_eval_len_builtin() {
+        test_multiple_eval(vec![
+            ("let a = len(\"hello\"); a".to_string(), Object::Int(5)),
+            ("len(\"\")".to_string(), Object::Int(0)),
         ])
     }
 }

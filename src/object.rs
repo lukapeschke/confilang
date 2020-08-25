@@ -1,6 +1,8 @@
 use crate::ast::{expressions, statements, Representable};
 use crate::environment::Environment;
 use std::cell::RefCell;
+use std::cmp;
+use std::fmt;
 use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -38,6 +40,41 @@ impl Function {
     }
 }
 
+type BuiltInFunc = fn(&[Object]) -> Result<Object, String>;
+
+#[derive(Clone)]
+pub struct BuiltIn {
+    // fn_: fn(&[Object]) -> Result<Object, String>,
+    fn_: BuiltInFunc,
+    name: String,
+}
+
+impl BuiltIn {
+    pub fn repr(&self) -> String {
+        format!("<built-in '{}'>", self.name)
+    }
+
+    pub fn call(&self, args: &[Object]) -> Result<Object, String> {
+        (self.fn_)(args)
+    }
+
+    pub fn new(name: String, fn_: BuiltInFunc) -> BuiltIn {
+        BuiltIn { fn_, name }
+    }
+}
+
+impl fmt::Debug for BuiltIn {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.repr())
+    }
+}
+
+impl cmp::PartialEq for BuiltIn {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Object {
     Int(i32),
@@ -46,6 +83,7 @@ pub enum Object {
     Str(String),
     ReturnValue(Box<Object>),
     Function(Function),
+    BuiltIn(BuiltIn),
     None,
 }
 
@@ -59,6 +97,7 @@ impl Object {
             Object::None => "None".to_string(),
             Object::ReturnValue(o) => o.repr(),
             Object::Function(f) => f.repr(),
+            Object::BuiltIn(b) => b.repr(),
         }
     }
 
@@ -71,6 +110,7 @@ impl Object {
             Object::None => false,
             Object::ReturnValue(o) => o.is_true(),
             Object::Function(_) => true,
+            Object::BuiltIn(_) => true,
         }
     }
 }
