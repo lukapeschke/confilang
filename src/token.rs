@@ -30,6 +30,8 @@ pub enum Token {
     RightParen,
     LeftBrace,
     RightBrace,
+    LeftBracket,
+    RightBracket,
 
     // Keywords
     Let,

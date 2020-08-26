@@ -190,6 +190,8 @@ impl<'a> Lexer<'a> {
             ')' => Token::RightParen,
             '{' => Token::LeftBrace,
             '}' => Token::RightBrace,
+            '[' => Token::LeftBracket,
+            ']' => Token::RightBracket,
 
             // Strings
             '"' => self.read_str(),
@@ -360,6 +362,24 @@ mod tests {
         assert_eq!(
             get_all_tokens(&mut lex),
             vec![Token::Str("he\\llo".to_string())]
+        )
+    }
+
+    #[test]
+    fn lex_array() {
+        let input = "[1, 2, hello]".to_string();
+        let mut lex = Lexer::new(&input).unwrap();
+        assert_eq!(
+            get_all_tokens(&mut lex),
+            vec![
+                Token::LeftBracket,
+                Token::Int(1),
+                Token::Comma,
+                Token::Int(2),
+                Token::Comma,
+                Token::Ident("hello".to_string()),
+                Token::RightBracket,
+            ]
         )
     }
 
