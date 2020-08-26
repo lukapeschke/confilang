@@ -22,6 +22,7 @@ pub enum Expression {
     If(expressions::If),
     Fn(expressions::Fn),
     Call(expressions::Call),
+    Array(expressions::Array),
 }
 
 impl Expression {
@@ -43,6 +44,7 @@ impl Representable for Expression {
             Expression::If(s) => s.repr(),
             Expression::Fn(s) => s.repr(),
             Expression::Call(s) => s.repr(),
+            Expression::Array(a) => a.repr(),
         }
     }
 }
@@ -174,8 +176,8 @@ pub mod expressions {
     }
 
     impl Str {
-        pub fn new(s: &String) -> Str {
-            Str { s: s.clone() }
+        pub fn new(s: &str) -> Str {
+            Str { s: s.to_string() }
         }
 
         pub fn value(&self) -> String {
@@ -390,6 +392,36 @@ pub mod expressions {
                 .join(", ");
 
             format!("{}({})", self.callable.repr(), params)
+        }
+    }
+
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct Array {
+        elems: Vec<Expression>,
+    }
+
+    impl Array {
+        pub fn new(elems: &[Expression]) -> Array {
+            Array {
+                elems: elems.to_vec(),
+            }
+        }
+
+        pub fn elements(&self) -> Vec<Expression> {
+            self.elems.clone()
+        }
+    }
+
+    impl Representable for Array {
+        fn repr(&self) -> String {
+            let elements = self
+                .elems
+                .iter()
+                .map(|x| x.repr())
+                .collect::<Vec<String>>()
+                .join(", ");
+
+            format!("[{}]", elements)
         }
     }
 }

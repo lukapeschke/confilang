@@ -1,5 +1,6 @@
 use crate::ast;
 use crate::parser;
+use std::mem;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -209,6 +210,54 @@ impl Token {
         )))
     }
 
+    fn parse_expression_list(
+        &self,
+        p: &mut parser::Parser,
+        stop_type: Token,
+    ) -> Result<Vec<ast::Expression>, String> {
+        let mut output = Vec::new();
+        let peek_token_is_discriminant = |tok: Option<Token>| match tok {
+            Some(tok) if mem::discriminant(&tok) == mem::discriminant(&stop_type) => true,
+            _ => false,
+        };
+
+        // Empty list
+        if peek_token_is_discriminant(p.peek_token()) {
+            p.next_token();
+            return Ok(output);
+        }
+
+        // Moving on token after opening token ( "(" or "[")
+        p.next_token();
+        output.push(p.parse_expression_lowest()?);
+
+        while let Some(Token::Comma) = p.peek_token() {
+            // Moving on comma
+            p.next_token();
+            // Moving on token after comma
+            p.next_token();
+            output.push(p.parse_expression_lowest()?);
+        }
+
+        // Ensuring that list is indeed closed by stop_type
+        if peek_token_is_discriminant(p.peek_token()) {
+            p.next_token();
+        } else {
+            return Err(format!(
+                "Expected right parenthesis, got {:?}",
+                p.peek_token()
+            ));
+        }
+
+        Ok(output)
+    }
+
+    fn parse_array(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
+        Ok(ast::Expression::Array(ast::expressions::Array::new(
+            &self.parse_expression_list(p, Token::RightBracket)?,
+        )))
+    }
+
     pub fn parse_prefix(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
         match self {
             Token::Ident(ident) => Ok(ast::Expression::Identifier(
@@ -226,6 +275,7 @@ impl Token {
                 false,
             ))),
             Token::LeftParen => self.parse_grouped_expression(p),
+            Token::LeftBracket => self.parse_array(p),
             Token::If => self.parse_if(p),
             Token::Fn => self.parse_fn_litteral(p),
             _ => Err(format!("Unsupported prefix token {:?}", self)),
@@ -247,38 +297,13 @@ impl Token {
         )))
     }
 
-    fn parse_call_params(&self, p: &mut parser::Parser) -> Result<Vec<ast::Expression>, String> {
-        let mut output = Vec::new();
-
-        // No args
-        if let Some(Token::RightParen) = p.peek_token() {
-            p.next_token();
-            return Ok(output);
-        }
-
-        // Moving on token after (
-        p.next_token();
-        output.push(p.parse_expression_lowest()?);
-
-        while let Some(Token::Comma) = p.peek_token() {
-            // Moving on comma
-            p.next_token();
-            // Moving on token after comma
-            p.next_token();
-            output.push(p.parse_expression_lowest()?);
-        }
-
-        self.ensure_right_paren(p)?;
-        Ok(output)
-    }
-
     fn parse_call(
         &self,
         p: &mut parser::Parser,
         // can be an identifier or a function literal
         callable: ast::Expression,
     ) -> Result<ast::Expression, String> {
-        let params = self.parse_call_params(p)?;
+        let params = self.parse_expression_list(p, Token::RightParen)?;
         Ok(ast::Expression::Call(ast::expressions::Call::new(
             callable, &params,
         )))

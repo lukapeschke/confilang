@@ -260,6 +260,7 @@ impl Evaluator {
             Expression::Identifier(id) => self.eval_identifier(id, env),
             Expression::Fn(f) => Ok(self.eval_fn(f, env)),
             Expression::Call(c) => self.eval_call(c, env),
+            _ => Err(format!("Expression {:?} cannot be evaluated", e)),
         }
     }
 

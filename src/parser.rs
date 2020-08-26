@@ -355,4 +355,12 @@ toto
             test_repr(t.0, t.1);
         }
     }
+
+    #[test]
+    fn test_array() {
+        let v = [("[1, 2*3, 8]", "[1, (2 * 3), 8]")];
+        for t in v.iter() {
+            test_repr(t.0, t.1);
+        }
+    }
 }
