@@ -309,6 +309,27 @@ impl Token {
         )))
     }
 
+    fn parse_index(
+        &self,
+        p: &mut parser::Parser,
+        left: &ast::Expression,
+    ) -> Result<ast::Expression, String> {
+        p.next_token();
+        let index = p.parse_expression_lowest()?;
+
+        if let Some(Token::RightBracket) = p.peek_token() {
+            p.next_token();
+            Ok(ast::Expression::Index(ast::expressions::Index::new(
+                left, &index,
+            )))
+        } else {
+            Err(format!(
+                "Expected a closing bracket got {:?}",
+                p.peek_token()
+            ))
+        }
+    }
+
     pub fn parse_infix(
         &self,
         p: &mut parser::Parser,
@@ -316,6 +337,7 @@ impl Token {
     ) -> Option<Result<ast::Expression, String>> {
         match self {
             Token::LeftParen => Some(self.parse_call(p, left)),
+            Token::LeftBracket => Some(self.parse_index(p, &left)),
             Token::Plus
             | Token::Minus
             | Token::Asterisk
@@ -345,6 +367,7 @@ impl Token {
             Token::Slash => parser::Precedence::Product,
             Token::Asterisk => parser::Precedence::Product,
             Token::LeftParen => parser::Precedence::Call,
+            Token::LeftBracket => parser::Precedence::Index,
             _ => parser::Precedence::Lowest,
         }
     }

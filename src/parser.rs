@@ -12,6 +12,7 @@ pub enum Precedence {
     Product,
     Prefix, // -x or !x
     Call,
+    Index,
 }
 
 pub struct Parser<'a> {
@@ -359,6 +360,28 @@ toto
     #[test]
     fn test_array() {
         let v = [("[1, 2*3, 8]", "[1, (2 * 3), 8]")];
+        for t in v.iter() {
+            test_repr(t.0, t.1);
+        }
+    }
+
+    #[test]
+    fn test_array_index() {
+        let v = [
+            ("my_array[1]", "(my_array[1])"),
+            ("my_array[1+2]", "(my_array[(1 + 2)])"),
+        ];
+        for t in v.iter() {
+            test_repr(t.0, t.1);
+        }
+    }
+
+    #[test]
+    fn test_array_index_precedence() {
+        let v = [(
+            "a * [1, 2, 3, 4][b * c] * d",
+            "((a * ([1, 2, 3, 4][(b * c)])) * d)",
+        )];
         for t in v.iter() {
             test_repr(t.0, t.1);
         }

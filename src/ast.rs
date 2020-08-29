@@ -23,6 +23,7 @@ pub enum Expression {
     Fn(expressions::Fn),
     Call(expressions::Call),
     Array(expressions::Array),
+    Index(expressions::Index),
 }
 
 impl Expression {
@@ -45,6 +46,7 @@ impl Representable for Expression {
             Expression::Fn(s) => s.repr(),
             Expression::Call(s) => s.repr(),
             Expression::Array(a) => a.repr(),
+            Expression::Index(i) => i.repr(),
         }
     }
 }
@@ -422,6 +424,35 @@ pub mod expressions {
                 .join(", ");
 
             format!("[{}]", elements)
+        }
+    }
+
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct Index {
+        left: Box<Expression>,
+        index: Box<Expression>,
+    }
+
+    impl Index {
+        pub fn new(left: &Expression, index: &Expression) -> Index {
+            Index {
+                left: Box::new(left.clone()),
+                index: Box::new(index.clone()),
+            }
+        }
+
+        pub fn left(&self) -> Expression {
+            *self.left.clone()
+        }
+
+        pub fn index(&self) -> Expression {
+            *self.index.clone()
+        }
+    }
+
+    impl Representable for Index {
+        fn repr(&self) -> String {
+            format!("({}[{}])", self.left.repr(), self.index.repr())
         }
     }
 }
