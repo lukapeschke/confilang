@@ -1,6 +1,7 @@
 use crate::ast::*;
 use crate::builtins;
 use crate::environment::Environment;
+use crate::object::Array;
 use crate::object::Function;
 use crate::object::Object;
 use crate::token::Token;
@@ -244,6 +245,37 @@ impl Evaluator {
         }
     }
 
+    fn eval_array(
+        &mut self,
+        a: &expressions::Array,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
+        Ok(Object::Array(Array::new(
+            &self.eval_expressions(&a.elements(), env)?,
+        )))
+    }
+
+    fn eval_index(
+        &mut self,
+        i: &expressions::Index,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
+        let index_obj = self.eval(i.index().as_node(), env)?;
+        match index_obj {
+            Object::Int(index) => {
+                let left_obj = self.eval(i.left().as_node(), env)?;
+                match left_obj {
+                    Object::Array(a) => a.index_access(index),
+                    _ => Err("Only arrays support index-based access".to_string()),
+                }
+            }
+            _ => Err(format!(
+                "Array index must be an integer, got {}",
+                index_obj.repr()
+            )),
+        }
+    }
+
     fn eval_expression(
         &mut self,
         e: &Expression,
@@ -260,7 +292,8 @@ impl Evaluator {
             Expression::Identifier(id) => self.eval_identifier(id, env),
             Expression::Fn(f) => Ok(self.eval_fn(f, env)),
             Expression::Call(c) => self.eval_call(c, env),
-            _ => Err(format!("Expression {:?} cannot be evaluated", e)),
+            Expression::Array(a) => self.eval_array(a, env),
+            Expression::Index(i) => self.eval_index(i, env),
         }
     }
 
@@ -577,6 +610,33 @@ mod tests {
         test_multiple_eval(vec![
             ("let a = len(\"hello\"); a".to_string(), Object::Int(5)),
             ("len(\"\")".to_string(), Object::Int(0)),
+        ])
+    }
+
+    #[test]
+    fn test_eval_array() {
+        test_multiple_eval(vec![(
+            "let a = [1, 1+1, 2* 3, 8]; a".to_string(),
+            Object::Array(Array::new(&vec![
+                Object::Int(1),
+                Object::Int(2),
+                Object::Int(6),
+                Object::Int(8),
+            ])),
+        )])
+    }
+
+    #[test]
+    fn test_eval_array_index() {
+        test_multiple_eval(vec![
+            (
+                "let a = [1, 1+1, 2* 3, 8]; a[2]".to_string(),
+                Object::Int(6),
+            ),
+            (
+                "let a = [1, 1+1, 2* 3, 8]; a[0]".to_string(),
+                Object::Int(1),
+            ),
         ])
     }
 }

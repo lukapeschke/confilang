@@ -44,7 +44,6 @@ type BuiltInFunc = fn(&[Object]) -> Result<Object, String>;
 
 #[derive(Clone)]
 pub struct BuiltIn {
-    // fn_: fn(&[Object]) -> Result<Object, String>,
     fn_: BuiltInFunc,
     name: String,
 }
@@ -76,6 +75,37 @@ impl cmp::PartialEq for BuiltIn {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct Array {
+    elems: Vec<Object>,
+}
+
+impl Array {
+    pub fn new(elems: &[Object]) -> Array {
+        Array {
+            elems: elems.to_vec(),
+        }
+    }
+
+    pub fn repr(&self) -> String {
+        let elems = self
+            .elems
+            .iter()
+            .map(|x| x.repr())
+            .collect::<Vec<String>>()
+            .join(", ");
+        format!("[{}]", elems)
+    }
+
+    pub fn index_access(&self, idx: i32) -> Result<Object, String> {
+        match idx {
+            _ if idx < 0 => Err("Negative indexes aren't supported".to_string()),
+            _ if idx as usize >= self.elems.len() => Err("Index out of range".to_string()),
+            _ => Ok(self.elems[idx as usize].clone()),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Object {
     Int(i32),
     Float(f32),
@@ -84,6 +114,7 @@ pub enum Object {
     ReturnValue(Box<Object>),
     Function(Function),
     BuiltIn(BuiltIn),
+    Array(Array),
     None,
 }
 
@@ -98,6 +129,7 @@ impl Object {
             Object::ReturnValue(o) => o.repr(),
             Object::Function(f) => f.repr(),
             Object::BuiltIn(b) => b.repr(),
+            Object::Array(a) => a.repr(),
         }
     }
 
@@ -111,6 +143,7 @@ impl Object {
             Object::ReturnValue(o) => o.is_true(),
             Object::Function(_) => true,
             Object::BuiltIn(_) => true,
+            Object::Array(a) => a.elems.len() > 0,
         }
     }
 }
