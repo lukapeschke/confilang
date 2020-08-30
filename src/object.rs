@@ -105,6 +105,12 @@ impl Array {
         }))
     }
 
+    pub fn append(&self, obj: Object) -> Object {
+        let mut vec = self.elems.clone();
+        vec.push(obj);
+        Object::Array(Array::new(&vec))
+    }
+
     pub fn get(&self, idx: usize) -> Option<Object> {
         match self.elems.get(idx) {
             Some(o) => Some(o.clone()),

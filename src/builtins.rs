@@ -38,11 +38,20 @@ fn tail(args: &[Object]) -> Result<Object, String> {
     }
 }
 
+fn append(args: &[Object]) -> Result<Object, String> {
+    ensure_args_len(args, 2, "append")?;
+    match &args[0] {
+        Object::Array(a) => Ok(a.append(args[1].clone())),
+        _ => Err(format!("unsupported type for tail: {:?}", args[0])),
+    }
+}
+
 pub fn get(name: &str) -> Option<BuiltIn> {
     match name {
         "len" => Some(BuiltIn::new("len".to_string(), len)),
         "head" => Some(BuiltIn::new("head".to_string(), head)),
         "tail" => Some(BuiltIn::new("tail".to_string(), tail)),
+        "append" => Some(BuiltIn::new("append".to_string(), append)),
         _ => None,
     }
 }
@@ -88,6 +97,25 @@ mod tests {
             (
                 "let a = [0]; tail(a)".to_string(),
                 Object::Array(Array::new(&[])),
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_eval_append_builtin() {
+        test_multiple_eval(vec![
+            (
+                "let a = append([1, 2, 3, 4], 5); tail(a)".to_string(),
+                Object::Array(Array::new(&[
+                    Object::Int(2),
+                    Object::Int(3),
+                    Object::Int(4),
+                    Object::Int(5),
+                ])),
+            ),
+            (
+                "let a = append([], 1); a".to_string(),
+                Object::Array(Array::new(&[Object::Int(1)])),
             ),
         ]);
     }
