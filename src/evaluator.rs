@@ -631,4 +631,52 @@ pub mod tests {
             ),
         ])
     }
+
+    #[test]
+    fn test_eval_array_advanced() {
+        test_multiple_eval(vec![
+            (
+                "
+let map = fn(arr, f) {
+    let iter = fn(arr, acc) {
+        if len(arr) == 0 {
+            acc
+        } else {
+            iter(tail(arr), append(acc, f(head(arr))))
+        }
+    };
+    iter(arr, [])
+};
+let increment = fn(x) {x + 1};
+map([0, 1, 2, 3], increment)
+"
+                .to_string(),
+                Object::Array(Array::new(&[
+                    Object::Int(1),
+                    Object::Int(2),
+                    Object::Int(3),
+                    Object::Int(4),
+                ])),
+            ),
+            (
+                "
+let fold = fn(arr, f, init) {
+    let iter = fn(arr, acc) {
+        if len(arr) == 0 {
+            acc
+        } else {
+            iter(tail(arr), f(acc, head(arr)))
+        }
+    };
+    iter(arr, init)
+};
+let add = fn(x, y) {x + y};
+let sum = fn(arr) {fold(arr, add, 0)};
+sum([0, 1, 2, 3])
+"
+                .to_string(),
+                Object::Int(6),
+            ),
+        ])
+    }
 }
