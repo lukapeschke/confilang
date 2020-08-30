@@ -86,6 +86,24 @@ impl Array {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.elems.len()
+    }
+
+    pub fn head(&self) -> Object {
+        match self.get(0) {
+            Some(o) => o,
+            None => Object::None,
+        }
+    }
+
+    pub fn get(&self, idx: usize) -> Option<Object> {
+        match self.elems.get(idx) {
+            Some(o) => Some(o.clone()),
+            None => None,
+        }
+    }
+
     pub fn repr(&self) -> String {
         let elems = self
             .elems

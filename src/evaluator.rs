@@ -371,7 +371,7 @@ impl Evaluator {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
 
     use super::*;
     use crate::lexer::Lexer;
@@ -388,7 +388,7 @@ mod tests {
         return eval(program.as_node()).unwrap();
     }
 
-    fn test_multiple_eval(cases: Vec<(String, Object)>) {
+    pub fn test_multiple_eval(cases: Vec<(String, Object)>) {
         for case in cases {
             println!("Testing with {}", case.0);
             assert_eq!(test_eval(case.0), case.1);
@@ -602,14 +602,6 @@ mod tests {
                 Object::Int(20),
             ),
             ("fn(x) { x; }(5)".to_string(), Object::Int(5)),
-        ])
-    }
-
-    #[test]
-    fn test_eval_len_builtin() {
-        test_multiple_eval(vec![
-            ("let a = len(\"hello\"); a".to_string(), Object::Int(5)),
-            ("len(\"\")".to_string(), Object::Int(0)),
         ])
     }
 
