@@ -1,4 +1,4 @@
-use crate::token::Token;
+use crate::token::{HashableFloat, Token};
 
 pub trait Representable {
     fn repr(&self) -> String;
@@ -10,7 +10,7 @@ pub enum Node {
     Program(Program),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Expression {
     Identifier(expressions::Identifier),
     Int(expressions::Int),
@@ -24,6 +24,7 @@ pub enum Expression {
     Call(expressions::Call),
     Array(expressions::Array),
     Index(expressions::Index),
+    HashMap(expressions::HashMap),
 }
 
 impl Expression {
@@ -47,11 +48,12 @@ impl Representable for Expression {
             Expression::Call(s) => s.repr(),
             Expression::Array(a) => a.repr(),
             Expression::Index(i) => i.repr(),
+            Expression::HashMap(h) => h.repr(),
         }
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Statement {
     Let(statements::Let),
     Return(statements::Return),
@@ -70,7 +72,7 @@ impl Representable for Statement {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Program {
     statements: Vec<Statement>,
 }
@@ -110,7 +112,7 @@ pub mod expressions {
 
     use super::*;
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Identifier {
         name: String,
     }
@@ -130,7 +132,7 @@ pub mod expressions {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Int {
         val: i32,
     }
@@ -151,28 +153,30 @@ pub mod expressions {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Float {
-        val: f32,
+        val: HashableFloat,
     }
 
     impl Float {
         pub fn new(f: f32) -> Float {
-            Float { val: f }
+            Float {
+                val: HashableFloat::new(f),
+            }
         }
 
         pub fn value(&self) -> f32 {
-            self.val
+            self.val.value()
         }
     }
 
     impl Representable for Float {
         fn repr(&self) -> String {
-            self.val.to_string()
+            self.value().to_string()
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Str {
         s: String,
     }
@@ -193,7 +197,7 @@ pub mod expressions {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Prefix {
         tok: Token,
         expr: Box<Expression>,
@@ -222,7 +226,7 @@ pub mod expressions {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Infix {
         tok: Token,
         left: Box<Expression>,
@@ -262,7 +266,7 @@ pub mod expressions {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Boolean {
         val: bool,
     }
@@ -283,7 +287,7 @@ pub mod expressions {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct If {
         condition: Box<Expression>,
         consequence: statements::Block,
@@ -325,7 +329,7 @@ pub mod expressions {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Fn {
         body: statements::Block,
         params: Vec<Identifier>,
@@ -361,7 +365,7 @@ pub mod expressions {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Call {
         callable: Box<Expression>,
         params: Vec<Expression>,
@@ -397,7 +401,7 @@ pub mod expressions {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Array {
         elems: Vec<Expression>,
     }
@@ -427,7 +431,7 @@ pub mod expressions {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Index {
         left: Box<Expression>,
         index: Box<Expression>,
@@ -455,6 +459,43 @@ pub mod expressions {
             format!("({}[{}])", self.left.repr(), self.index.repr())
         }
     }
+
+    // NOTE: HashMap requires Eq to be implemented in order to support debug.
+    // See https://github.com/rust-lang/rust/issues/22756
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct HashMap {
+        map: std::collections::HashMap<Expression, Expression>,
+    }
+
+    // NOTE: Implementing Hash but deriving PartialEq is generally a bad idea since
+    // the implementations must agree, but the hash implementation panics
+    // anyway so ¯\_(ツ)_/¯
+    // https://rust-lang.github.io/rust-clippy/master/index.html#derive_hash_xor_eq
+    #[allow(clippy::derive_hash_xor_eq)]
+    impl std::hash::Hash for HashMap {
+        fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
+            panic!("hash not implemented for HashMaperal");
+        }
+    }
+
+    impl HashMap {
+        pub fn new(map: std::collections::HashMap<Expression, Expression>) -> HashMap {
+            HashMap { map }
+        }
+    }
+
+    impl Representable for HashMap {
+        fn repr(&self) -> String {
+            let pairs = self
+                .map
+                .iter()
+                .map(|(k, v)| format!("{}: {}", k.repr(), v.repr()))
+                .collect::<Vec<String>>()
+                .join(", ");
+            // brackets + format brackets
+            format!("{{{}}}", pairs)
+        }
+    }
 }
 
 pub mod statements {
@@ -465,7 +506,7 @@ pub mod statements {
         fn parse(l: &mut parser::Parser) -> Result<Statement, String>;
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Let {
         ident: expressions::Identifier,
         value: Expression,
@@ -522,7 +563,7 @@ pub mod statements {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Return {
         expr: Expression,
     }
@@ -556,7 +597,7 @@ pub mod statements {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct ExpressionStatement {
         expr: Expression,
     }
@@ -592,7 +633,7 @@ pub mod statements {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct Block {
         statements: Vec<Statement>,
     }

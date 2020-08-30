@@ -294,6 +294,7 @@ impl Evaluator {
             Expression::Call(c) => self.eval_call(c, env),
             Expression::Array(a) => self.eval_array(a, env),
             Expression::Index(i) => self.eval_index(i, env),
+            _ => Err(format!("Cannot evaluate {:?}", e)),
         }
     }
 

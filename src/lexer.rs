@@ -1,4 +1,4 @@
-use crate::token::Token;
+use crate::token::{HashableFloat, Token};
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
@@ -71,7 +71,7 @@ impl<'a> Lexer<'a> {
         match s.parse::<i32>() {
             Ok(i) => Token::Int(i),
             Err(_) => match s.parse::<f32>() {
-                Ok(f) => Token::Float(f),
+                Ok(f) => Token::Float(HashableFloat::new(f)),
                 Err(_) => Token::Illegal(s.to_string()),
             },
         }
@@ -227,8 +227,7 @@ impl<'a> Lexer<'a> {
 #[cfg(test)]
 mod tests {
 
-    use super::Lexer;
-    use super::Token;
+    use super::*;
 
     fn get_all_tokens(lex: &mut Lexer) -> Vec<Token> {
         let mut output = Vec::new();
@@ -314,7 +313,7 @@ mod tests {
                 Token::Let,
                 Token::Ident("f".to_string()),
                 Token::Assign,
-                Token::Float(10.5),
+                Token::Float(HashableFloat::new(10.5)),
                 Token::Semicolon,
             ]
         )

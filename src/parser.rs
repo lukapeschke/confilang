@@ -386,4 +386,15 @@ toto
             test_repr(t.0, t.1);
         }
     }
+
+    #[test]
+    fn test_hashmap() {
+        let v = [
+            ("{1: 2, \"a\": \"b\"}", "{1: 2, \"a\": \"b\"}"),
+            ("{}", "{}"),
+        ];
+        for t in v.iter() {
+            test_repr(t.0, t.1);
+        }
+    }
 }

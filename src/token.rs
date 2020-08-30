@@ -3,6 +3,32 @@ use crate::parser;
 use std::mem;
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct HashableFloat(f32);
+
+impl HashableFloat {
+    pub fn new(f: f32) -> HashableFloat {
+        HashableFloat(f)
+    }
+
+    pub fn value(&self) -> f32 {
+        self.0
+    }
+}
+
+// NOTE: Implementing Hash but deriving PartialEq is generally a bad idea since
+// the implementations must agree, but the hash implementation panics
+// anyway so ¯\_(ツ)_/¯
+// https://rust-lang.github.io/rust-clippy/master/index.html#derive_hash_xor_eq
+#[allow(clippy::derive_hash_xor_eq)]
+impl std::hash::Hash for HashableFloat {
+    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
+        panic!("hash not implemented for HashableFloat");
+    }
+}
+
+impl std::cmp::Eq for HashableFloat {}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Token {
     // Basic
     Illegal(String),
@@ -11,7 +37,7 @@ pub enum Token {
     // Identifiers and literals
     Ident(String),
     Int(i32),
-    Float(f32),
+    Float(HashableFloat),
     Str(String),
 
     // Operators
@@ -259,6 +285,49 @@ impl Token {
         )))
     }
 
+    fn parse_hashmap(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
+        let mut hash = std::collections::HashMap::new();
+
+        while let Some(tok) = p.peek_token() {
+            if let Token::RightBrace = tok {
+                break;
+            }
+            p.next_token();
+
+            let key = p.parse_expression_lowest()?;
+
+            match p.peek_token() {
+                Some(Token::Colon) => {
+                    // moving onto colon
+                    p.next_token();
+                    // moving on token after colon
+                    p.next_token();
+                }
+                _ => return Err(format!("Expected ':', got {:?}", p.peek_token())),
+            };
+
+            let val = p.parse_expression_lowest()?;
+
+            hash.insert(key, val);
+
+            match p.peek_token() {
+                Some(Token::RightBrace) => (),
+                Some(Token::Comma) => {
+                    p.next_token();
+                }
+                _ => return Err(format!("Expected ',', got {:?}", p.peek_token())),
+            };
+        }
+        if let Some(Token::RightBrace) = p.peek_token() {
+            p.next_token();
+        } else {
+            return Err(format!("Expected '}}', got {:?}", p.peek_token()));
+        }
+        Ok(ast::Expression::HashMap(ast::expressions::HashMap::new(
+            hash,
+        )))
+    }
+
     pub fn parse_prefix(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
         match self {
             Token::Ident(ident) => Ok(ast::Expression::Identifier(
@@ -266,7 +335,9 @@ impl Token {
                 ast::expressions::Identifier::new(ident.clone()),
             )),
             Token::Int(i) => Ok(ast::Expression::Int(ast::expressions::Int::new(*i))),
-            Token::Float(f) => Ok(ast::Expression::Float(ast::expressions::Float::new(*f))),
+            Token::Float(f) => Ok(ast::Expression::Float(ast::expressions::Float::new(
+                f.value(),
+            ))),
             Token::Str(s) => Ok(ast::Expression::Str(ast::expressions::Str::new(s))),
             Token::Bang | Token::Minus => self.parse_prefix_expression(p),
             Token::True => Ok(ast::Expression::Boolean(ast::expressions::Boolean::new(
@@ -277,6 +348,7 @@ impl Token {
             ))),
             Token::LeftParen => self.parse_grouped_expression(p),
             Token::LeftBracket => self.parse_array(p),
+            Token::LeftBrace => self.parse_hashmap(p),
             Token::If => self.parse_if(p),
             Token::Fn => self.parse_fn_litteral(p),
             _ => Err(format!("Unsupported prefix token {:?}", self)),
@@ -378,7 +450,7 @@ impl Token {
             // Identifiers and literals
             Token::Ident(s) => s.clone(),
             Token::Int(i) => format!("{}", i),
-            Token::Float(f) => format!("{}", f),
+            Token::Float(f) => format!("{}", f.value()),
 
             // Operators
             Token::Assign => "=".to_string(),
