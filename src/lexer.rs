@@ -192,6 +192,7 @@ impl<'a> Lexer<'a> {
             '}' => Token::RightBrace,
             '[' => Token::LeftBracket,
             ']' => Token::RightBracket,
+            ':' => Token::Colon,
 
             // Strings
             '"' => self.read_str(),
@@ -438,5 +439,25 @@ let result = add(five, ten);
                 Token::Semicolon,
             ]
         );
+    }
+
+    #[test]
+    fn lex_hashmap() {
+        let input = "{\"one\": \"two\", 1: 2}".to_string();
+        let mut lex = Lexer::new(&input).unwrap();
+        assert_eq!(
+            get_all_tokens(&mut lex),
+            vec![
+                Token::LeftBrace,
+                Token::Str("one".to_string()),
+                Token::Colon,
+                Token::Str("two".to_string()),
+                Token::Comma,
+                Token::Int(1),
+                Token::Colon,
+                Token::Int(2),
+                Token::RightBrace,
+            ]
+        )
     }
 }
