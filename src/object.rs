@@ -169,7 +169,7 @@ impl Object {
             Object::ReturnValue(o) => o.is_true(),
             Object::Function(_) => true,
             Object::BuiltIn(_) => true,
-            Object::Array(a) => a.elems.len() > 0,
+            Object::Array(a) => !a.elems.is_empty(),
         }
     }
 }
