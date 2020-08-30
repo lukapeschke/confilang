@@ -97,6 +97,14 @@ impl Array {
         }
     }
 
+    pub fn tail(&self) -> Object {
+        Object::Array(Array::new(if self.elems.len() > 1 {
+            &self.elems[1..]
+        } else {
+            &[]
+        }))
+    }
+
     pub fn get(&self, idx: usize) -> Option<Object> {
         match self.elems.get(idx) {
             Some(o) => Some(o.clone()),
