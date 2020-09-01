@@ -387,6 +387,7 @@ toto
         }
     }
 
+    // FIXME(lpeschke): Flaky, keys may be swapped
     #[test]
     fn test_hashmap() {
         let v = [

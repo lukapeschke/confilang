@@ -3,9 +3,11 @@ use crate::builtins;
 use crate::environment::Environment;
 use crate::object::Array;
 use crate::object::Function;
+use crate::object::HashMap;
 use crate::object::Object;
 use crate::token::Token;
 use crate::token::Token::*;
+use crate::utils::HashableFloat;
 use std::cell::RefCell;
 use std::ops::{Add, Div, Mul, Sub};
 use std::rc::Rc;
@@ -80,9 +82,9 @@ impl Evaluator {
 
     fn float_op(&self, left: f32, right: f32, token: &Token) -> Result<Object, String> {
         match token {
-            &Plus | &Minus | &Asterisk | &Slash => {
-                Ok(Object::Float(self.basic_arithmetic_op(left, right, token)?))
-            }
+            &Plus | &Minus | &Asterisk | &Slash => Ok(Object::Float(HashableFloat::new(
+                self.basic_arithmetic_op(left, right, token)?,
+            ))),
             &Equals | &Differs | &Lt | &Gt | &Le | &Ge => {
                 Ok(Object::Bool(self.basic_bool_op(left, right, token)?))
             }
@@ -109,11 +111,11 @@ impl Evaluator {
         right: &Object,
         token: &Token,
     ) -> Result<Object, String> {
-        match (left, right) {
-            (&Object::Int(l), &Object::Int(r)) => self.int_op(l, r, token),
-            (&Object::Float(l), &Object::Int(r)) => self.float_op(l, r as f32, token),
-            (&Object::Int(l), &Object::Float(r)) => self.float_op(l as f32, r, token),
-            (&Object::Float(l), &Object::Float(r)) => self.float_op(l, r, token),
+        match (&left, &right) {
+            (&Object::Int(l), &Object::Int(r)) => self.int_op(*l, *r, token),
+            (&Object::Float(l), &Object::Int(r)) => self.float_op(l.value(), *r as f32, token),
+            (&Object::Int(l), &Object::Float(r)) => self.float_op(*l as f32, r.value(), token),
+            (&Object::Float(l), &Object::Float(r)) => self.float_op(l.value(), r.value(), token),
             _ => Err(format!(
                 "Objects {:?} and {:?} not supported for arithmetic operations",
                 left, right,
@@ -261,19 +263,48 @@ impl Evaluator {
         env: &Option<Rc<RefCell<Environment>>>,
     ) -> Result<Object, String> {
         let index_obj = self.eval(i.index().as_node(), env)?;
-        match index_obj {
-            Object::Int(index) => {
-                let left_obj = self.eval(i.left().as_node(), env)?;
-                match left_obj {
-                    Object::Array(a) => a.index_access(index),
-                    _ => Err("Only arrays support index-based access".to_string()),
+        let left_obj = self.eval(i.left().as_node(), env)?;
+        match left_obj {
+            Object::Array(a) => {
+                if let Object::Int(idx) = index_obj {
+                    a.index_access(idx)
+                } else {
+                    Err(format!(
+                        "Array index must be an integer, got {}",
+                        index_obj.repr()
+                    ))
                 }
             }
+            Object::HashMap(h) => h.index_access(&index_obj),
             _ => Err(format!(
-                "Array index must be an integer, got {}",
-                index_obj.repr()
+                "Index-based access not supported for {:?}",
+                left_obj
             )),
         }
+    }
+
+    fn eval_hashmap(
+        &mut self,
+        h: &expressions::HashMap,
+        env: &Option<Rc<RefCell<Environment>>>,
+    ) -> Result<Object, String> {
+        let mut output = std::collections::HashMap::new();
+
+        let handle_k_v = |(k, v): (&Expression, &Expression)| -> Result<(), String> {
+            let key = self.eval_expression(k, env)?;
+            if !key.is_hashable() {
+                return Err(format!("Unhashable object '{:?}'", key));
+            }
+            let val = self.eval_expression(v, env)?;
+            output.insert(key, val);
+            Ok(())
+        };
+        h.elems()
+            .iter()
+            .map(handle_k_v)
+            .collect::<Result<(), String>>()?;
+
+        Ok(Object::HashMap(HashMap::new(output)))
     }
 
     fn eval_expression(
@@ -283,7 +314,7 @@ impl Evaluator {
     ) -> Result<Object, String> {
         match e {
             Expression::Int(i) => Ok(Object::Int(i.value())),
-            Expression::Float(f) => Ok(Object::Float(f.value())),
+            Expression::Float(f) => Ok(Object::Float(HashableFloat::new(f.value()))),
             Expression::Str(s) => Ok(Object::Str(s.value())),
             Expression::Boolean(b) => Ok(Object::Bool(b.value())),
             Expression::Prefix(p) => self.eval_prefix_expression(p, env),
@@ -294,7 +325,7 @@ impl Evaluator {
             Expression::Call(c) => self.eval_call(c, env),
             Expression::Array(a) => self.eval_array(a, env),
             Expression::Index(i) => self.eval_index(i, env),
-            _ => Err(format!("Cannot evaluate {:?}", e)),
+            Expression::HashMap(h) => self.eval_hashmap(h, env),
         }
     }
 
@@ -429,10 +460,22 @@ pub mod tests {
             ("--42".to_string(), Object::Int(42)),
             ("--1337".to_string(), Object::Int(1337)),
             // float
-            ("-42.42".to_string(), Object::Float(-42.42)),
-            ("-1337.1337".to_string(), Object::Float(-1337.1337)),
-            ("--42.42".to_string(), Object::Float(42.42)),
-            ("--1337.1337".to_string(), Object::Float(1337.1337)),
+            (
+                "-42.42".to_string(),
+                Object::Float(HashableFloat::new(-42.42)),
+            ),
+            (
+                "-1337.1337".to_string(),
+                Object::Float(HashableFloat::new(-1337.1337)),
+            ),
+            (
+                "--42.42".to_string(),
+                Object::Float(HashableFloat::new(42.42)),
+            ),
+            (
+                "--1337.1337".to_string(),
+                Object::Float(HashableFloat::new(1337.1337)),
+            ),
         ]);
     }
 
@@ -463,23 +506,56 @@ pub mod tests {
     #[test]
     fn test_eval_float_op() {
         test_multiple_eval(vec![
-            ("5.0".to_string(), Object::Float(5.0)),
-            ("10.0".to_string(), Object::Float(10.0)),
-            ("-5.0".to_string(), Object::Float(-5.0)),
-            ("-10.0".to_string(), Object::Float(-10.0)),
-            ("5 + 5.0 + 5 + 5 - 10".to_string(), Object::Float(10.0)),
-            ("2 * 2.0 * 2 * 2 * 2".to_string(), Object::Float(32.0)),
-            ("-50.0 + 100 + -50".to_string(), Object::Float(0.0)),
-            ("5 * 2 + 10.0".to_string(), Object::Float(20.0)),
-            ("5 + 2.0 * 10".to_string(), Object::Float(25.0)),
-            ("20.0 + 2 * -10".to_string(), Object::Float(0.0)),
-            ("50 / 2.0 * 2 + 10".to_string(), Object::Float(60.0)),
-            ("2 * (5 + 10.0)".to_string(), Object::Float(30.0)),
-            ("3 * 3 * 3.0 + 10".to_string(), Object::Float(37.0)),
-            ("3 * (3 * 3.0) + 10".to_string(), Object::Float(37.0)),
+            ("5.0".to_string(), Object::Float(HashableFloat::new(5.0))),
+            ("10.0".to_string(), Object::Float(HashableFloat::new(10.0))),
+            ("-5.0".to_string(), Object::Float(HashableFloat::new(-5.0))),
+            (
+                "-10.0".to_string(),
+                Object::Float(HashableFloat::new(-10.0)),
+            ),
+            (
+                "5 + 5.0 + 5 + 5 - 10".to_string(),
+                Object::Float(HashableFloat::new(10.0)),
+            ),
+            (
+                "2 * 2.0 * 2 * 2 * 2".to_string(),
+                Object::Float(HashableFloat::new(32.0)),
+            ),
+            (
+                "-50.0 + 100 + -50".to_string(),
+                Object::Float(HashableFloat::new(0.0)),
+            ),
+            (
+                "5 * 2 + 10.0".to_string(),
+                Object::Float(HashableFloat::new(20.0)),
+            ),
+            (
+                "5 + 2.0 * 10".to_string(),
+                Object::Float(HashableFloat::new(25.0)),
+            ),
+            (
+                "20.0 + 2 * -10".to_string(),
+                Object::Float(HashableFloat::new(0.0)),
+            ),
+            (
+                "50 / 2.0 * 2 + 10".to_string(),
+                Object::Float(HashableFloat::new(60.0)),
+            ),
+            (
+                "2 * (5 + 10.0)".to_string(),
+                Object::Float(HashableFloat::new(30.0)),
+            ),
+            (
+                "3 * 3 * 3.0 + 10".to_string(),
+                Object::Float(HashableFloat::new(37.0)),
+            ),
+            (
+                "3 * (3 * 3.0) + 10".to_string(),
+                Object::Float(HashableFloat::new(37.0)),
+            ),
             (
                 "(5 + 10.0 * 2 + 15 / 3) * 2 + -10".to_string(),
-                Object::Float(50.0),
+                Object::Float(HashableFloat::new(50.0)),
             ),
         ]);
     }
@@ -677,6 +753,30 @@ sum([0, 1, 2, 3])
 "
                 .to_string(),
                 Object::Int(6),
+            ),
+        ])
+    }
+
+    #[test]
+    fn test_eval_hashmap() {
+        let mut res1 = std::collections::HashMap::new();
+        res1.insert(Object::Int(1), Object::Int(2));
+        res1.insert(
+            Object::Str("hello".to_string()),
+            Object::Str("hi".to_string()),
+        );
+        test_multiple_eval(vec![
+            (
+                "let a = {1: 2, \"hello\": \"hi\"}; a".to_string(),
+                Object::HashMap(HashMap::new(res1)),
+            ),
+            (
+                "let a = {true: false, false: false}; a[true]".to_string(),
+                Object::Bool(false),
+            ),
+            (
+                "let a = {true: 1, false: 2}; a[true] + a[false]".to_string(),
+                Object::Int(3),
             ),
         ])
     }

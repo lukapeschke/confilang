@@ -1,4 +1,5 @@
-use crate::token::{HashableFloat, Token};
+use crate::token::Token;
+use crate::utils::HashableFloat;
 
 #[derive(Debug)]
 pub struct Lexer<'a> {

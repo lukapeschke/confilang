@@ -1,4 +1,5 @@
-use crate::token::{HashableFloat, Token};
+use crate::token::Token;
+use crate::utils::HashableFloat;
 
 pub trait Representable {
     fn repr(&self) -> String;
@@ -481,6 +482,10 @@ pub mod expressions {
     impl HashMap {
         pub fn new(map: std::collections::HashMap<Expression, Expression>) -> HashMap {
             HashMap { map }
+        }
+
+        pub fn elems(&self) -> &std::collections::HashMap<Expression, Expression> {
+            &self.map
         }
     }
 

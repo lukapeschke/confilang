@@ -1,12 +1,24 @@
 use crate::object::Object;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::hash;
 use std::rc::Rc;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Environment {
     map: HashMap<String, Object>,
     parent: Option<Rc<RefCell<Environment>>>,
+}
+
+// NOTE: Implementing Hash but deriving PartialEq is generally a bad idea since
+// the implementations must agree, but the hash implementation panics
+// anyway so ¯\_(ツ)_/¯
+// https://rust-lang.github.io/rust-clippy/master/index.html#derive_hash_xor_eq
+#[allow(clippy::derive_hash_xor_eq)]
+impl hash::Hash for Environment {
+    fn hash<H: hash::Hasher>(&self, _state: &mut H) {
+        panic!("hash not implemented for Environment");
+    }
 }
 
 impl Environment {

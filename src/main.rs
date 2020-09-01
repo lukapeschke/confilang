@@ -7,6 +7,7 @@ mod object;
 mod parser;
 mod repl;
 mod token;
+mod utils;
 
 use clap::Clap;
 
