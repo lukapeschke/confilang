@@ -22,7 +22,7 @@ fn version() -> Vec<u8> {
         false => {
             let rev_parse = git_rev_parse();
             match rev_parse.status.success() {
-                true => ["0.0.0-".as_bytes(), &rev_parse.stdout[0..7]].concat(),
+                true => [b"0.0.0-", &rev_parse.stdout[0..7]].concat(),
                 false => panic!("could not retrieve version from git"),
             }
         }
