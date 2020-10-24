@@ -8,12 +8,12 @@ mod parser;
 mod repl;
 mod token;
 mod utils;
+mod version;
 
 use clap::Clap;
 
-/// A basic example
 #[derive(Clap, Debug)]
-#[clap(name = "confilang")]
+#[clap(version = version::get_version())]
 struct Opt {
     #[clap(short, long)]
     debug: bool,
