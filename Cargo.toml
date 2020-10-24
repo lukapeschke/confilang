@@ -8,4 +8,8 @@ build = "build.rs"
 
 [dependencies]
 termion = "1.5.5"
-clap = "3.0.0-beta.1"
+
+[dependencies.clap]
+version = "3.0.0-beta.2"
+default-features = false
+features = ["std", "derive"]
