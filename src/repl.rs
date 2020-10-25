@@ -120,43 +120,62 @@ impl Repl {
         self.buf_ptr = if reset { 0 } else { buf.chars().count() };
     }
 
+    fn delete_char(&mut self, buf: &mut String) {
+        if self.buf_ptr > 0 {
+            self.buf_ptr -= 1;
+            buf.remove(self.buf_ptr);
+        }
+    }
+
+    /// Returns Some(NextLineStatus) if the status should be returned, None otherwise
+    fn match_key(&mut self, buf: &mut String, key: Key) -> Result<Option<NextLineStatus>, String> {
+        let left_offset = |i| if i > 0 { 1 } else { 0 };
+        let right_offset = |i, max_len| if i < max_len { 1 } else { 0 };
+
+        match key {
+            Key::Char(c) => match c {
+                '\n' => {
+                    self.display_line(&buf, buf.chars().count(), true)?;
+                    return Ok(Some(NextLineStatus::Continue));
+                }
+                _ => {
+                    if self.buf_ptr == buf.len() {
+                        buf.push(c);
+                    } else {
+                        buf.insert(self.buf_ptr, c);
+                    }
+                    self.buf_ptr += 1;
+                }
+            },
+            Key::Ctrl('d') | Key::Ctrl('c') | Key::Ctrl('q') => {
+                return Ok(Some(NextLineStatus::Stop))
+            }
+            Key::Ctrl('l') => self.clear()?,
+            Key::Left => self.buf_ptr -= left_offset(self.buf_ptr),
+            Key::Right => self.buf_ptr += right_offset(self.buf_ptr, buf.chars().count()),
+            Key::Home => self.buf_ptr = 0,
+            Key::End => self.buf_ptr = buf.chars().count(),
+            Key::Up => return Ok(Some(NextLineStatus::Previous)),
+            Key::Down => return Ok(Some(NextLineStatus::Next)),
+            Key::Backspace => self.delete_char(buf),
+            _ => (),
+        };
+
+        Ok(None)
+    }
+
     fn next_line(&mut self, buf: &mut String, reset: bool) -> Result<NextLineStatus, String> {
         let stdin = stdin();
         self.reset_buf_ptr(buf, reset);
 
-        let left_offset = |i| if i > 0 { 1 } else { 0 };
-        let right_offset = |i, max_len| if i < max_len { 1 } else { 0 };
-
         self.display_line(&buf, self.buf_ptr, false)?;
         for key_result in stdin.keys() {
             match key_result {
-                Ok(k) => match k {
-                    Key::Char(c) => match c {
-                        '\n' => {
-                            self.display_line(&buf, buf.chars().count(), true)?;
-                            return Ok(NextLineStatus::Continue);
-                        }
-                        _ => {
-                            if self.buf_ptr == buf.len() {
-                                buf.push(c);
-                            } else {
-                                buf.insert(self.buf_ptr, c);
-                            }
-                            self.buf_ptr += 1;
-                        }
-                    },
-                    Key::Ctrl('d') | Key::Ctrl('c') | Key::Ctrl('q') => {
-                        return Ok(NextLineStatus::Stop)
+                Ok(key) => {
+                    if let Some(status) = self.match_key(buf, key)? {
+                        return Ok(status);
                     }
-                    Key::Ctrl('l') => self.clear()?,
-                    Key::Left => self.buf_ptr -= left_offset(self.buf_ptr),
-                    Key::Right => self.buf_ptr += right_offset(self.buf_ptr, buf.chars().count()),
-                    Key::Home => self.buf_ptr = 0,
-                    Key::End => self.buf_ptr = buf.chars().count(),
-                    Key::Up => return Ok(NextLineStatus::Previous),
-                    Key::Down => return Ok(NextLineStatus::Next),
-                    _ => (),
-                },
+                }
                 Err(e) => return Err(format!("error while reading stdin: {}", e)),
             }
             self.display_line(&buf, self.buf_ptr, false)?;
