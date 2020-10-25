@@ -102,13 +102,13 @@ impl Repl {
 
     fn display_line(&mut self, line: &str, buf_ptr: usize, newline: bool) -> Result<(), String> {
         let cursor_pos = self.get_cursor_pos(buf_ptr)?;
-        let clear = termion::clear::AfterCursor;
+        let clear = termion::clear::CurrentLine;
         let formatted_line = format!(
-            "{prompt}{line}{cursor_pos}{clear}",
+            "{clear}{prompt}{line}{cursor_pos}",
+            clear = clear,
             prompt = PROMPT,
             line = line,
             cursor_pos = cursor_pos,
-            clear = clear
         );
         match newline {
             true => self.println(&formatted_line),
