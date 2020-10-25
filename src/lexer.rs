@@ -1,3 +1,4 @@
+use crate::color;
 use crate::token::Token;
 use crate::utils::HashableFloat;
 
@@ -239,6 +240,19 @@ impl<'a> Lexer<'a> {
         }
         self.reset();
         output
+    }
+}
+
+pub fn with_colors(litteral: &str) -> String {
+    if let Some(mut lex) = Lexer::new(litteral) {
+        let mut output = Vec::new();
+        while let Some(tok) = lex.next_token() {
+            let litteral = lex.cur_token_litteral();
+            output.push(color::with_colors(&tok, &litteral));
+        }
+        output.join("")
+    } else {
+        "".to_string()
     }
 }
 

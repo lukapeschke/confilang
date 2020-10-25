@@ -1,3 +1,4 @@
+use crate::color;
 use crate::evaluator;
 use crate::lexer;
 use crate::parser;
@@ -100,14 +101,30 @@ impl Repl {
         Ok(Goto((PROMPT_LEN + buf_ptr + 1) as u16, cur_pos_y))
     }
 
+    fn can_be_parsed(&mut self, line: &str) -> bool {
+        if let Some(mut lex) = lexer::Lexer::new(line) {
+            if let Some(mut parser) = parser::Parser::new(&mut lex) {
+                parser.parse_program().is_ok()
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
     fn display_line(&mut self, line: &str, buf_ptr: usize, newline: bool) -> Result<(), String> {
         let cursor_pos = self.get_cursor_pos(buf_ptr)?;
         let clear = termion::clear::CurrentLine;
         let formatted_line = format!(
             "{clear}{prompt}{line}{cursor_pos}",
             clear = clear,
-            prompt = PROMPT,
-            line = line,
+            prompt = if line.chars().count() > 0 {
+                color::style_prompt(PROMPT, self.can_be_parsed(line))
+            } else {
+                PROMPT.to_string()
+            },
+            line = lexer::with_colors(line),
             cursor_pos = cursor_pos,
         );
         match newline {

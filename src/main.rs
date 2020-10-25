@@ -1,5 +1,6 @@
 mod ast;
 mod builtins;
+mod color;
 mod environment;
 mod evaluator;
 mod lexer;
@@ -9,7 +10,6 @@ mod repl;
 mod token;
 mod utils;
 mod version;
-
 use clap::Clap;
 
 #[derive(Clap, Debug)]

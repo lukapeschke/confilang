@@ -55,6 +55,26 @@ pub enum Token {
 }
 
 impl Token {
+    pub fn is_keyword(&self) -> bool {
+        match self {
+            Token::Let
+            | Token::Fn
+            | Token::If
+            | Token::Else
+            | Token::Return
+            | Token::And
+            | Token::Or => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_bool(&self) -> bool {
+        match self {
+            Token::True | Token::False => true,
+            _ => false,
+        }
+    }
+
     fn parse_prefix_expression(&self, p: &mut parser::Parser) -> Result<ast::Expression, String> {
         // If we're here, we assume that self if one of [Bang, Minus]
         p.next_token();
