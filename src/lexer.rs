@@ -7,6 +7,7 @@ pub struct Lexer<'a> {
     chars: std::iter::Peekable<std::str::Chars<'a>>,
     len: usize,
     read_pos: usize,
+    token_start: usize,
     ch: char,
 }
 
@@ -146,6 +147,7 @@ impl<'a> Lexer<'a> {
     }
 
     pub fn next_token(&mut self) -> Option<Token> {
+        self.token_start = self.read_pos;
         self.skip_whitespace();
         let c = self.read_char()?;
         Some(match c {
@@ -203,6 +205,10 @@ impl<'a> Lexer<'a> {
         })
     }
 
+    pub fn cur_token_litteral(&self) -> String {
+        self.raw[self.token_start..self.read_pos].to_string()
+    }
+
     fn reset(&mut self) {
         self.chars = self.raw.chars().peekable();
         self.len = self.raw.chars().count();
@@ -221,6 +227,7 @@ impl<'a> Lexer<'a> {
             chars: text.chars().peekable(),
             len,
             read_pos: 0,
+            token_start: 0,
             ch: 0 as char,
         })
     }
@@ -248,6 +255,14 @@ mod tests {
         output
     }
 
+    fn get_all_litterals(lex: &mut Lexer) -> Vec<String> {
+        let mut output = Vec::new();
+        while let Some(_) = lex.next_token() {
+            output.push(lex.cur_token_litteral())
+        }
+        output
+    }
+
     #[test]
     fn lex_multichar_op() {
         let input = "== != >= <=".to_string();
@@ -255,6 +270,23 @@ mod tests {
         assert_eq!(
             get_all_tokens(&mut lex),
             vec![Token::Equals, Token::Differs, Token::Ge, Token::Le,]
+        )
+    }
+
+    #[test]
+    fn test_get_all_litterals_simple() {
+        let input = "== != >= <=".to_string();
+        let mut lex = Lexer::new(&input).unwrap();
+        assert_eq!(get_all_litterals(&mut lex), vec!["==", " !=", " >=", " <="])
+    }
+
+    #[test]
+    fn test_get_all_litterals_with_whitespace() {
+        let input = "==  !=    >=  <=".to_string();
+        let mut lex = Lexer::new(&input).unwrap();
+        assert_eq!(
+            get_all_litterals(&mut lex),
+            vec!["==", "  !=", "    >=", "  <="]
         )
     }
 
