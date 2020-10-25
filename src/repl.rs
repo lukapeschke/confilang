@@ -2,13 +2,38 @@ use crate::evaluator;
 use crate::lexer;
 use crate::parser;
 
-use std::io::Write;
+use std::io::{stdin, stdout, Stdout, Write};
+use termion::cursor;
+use termion::cursor::{DetectCursorPos, Goto};
+use termion::event::Key;
+use termion::input::TermRead;
+use termion::raw::{IntoRawMode, RawTerminal};
 
-static PROMPT: &str = "~> ";
+static PROMPT: &str = "\r~> ";
+static PROMPT_LEN: usize = 3;
 
 struct Repl {
     ev: evaluator::Evaluator,
     debug: bool,
+    stdout: RawTerminal<Stdout>,
+    buf_ptr: usize,
+}
+
+#[derive(Debug)]
+enum NextLineStatus {
+    Continue,
+    Stop,
+    Previous,
+    Next,
+}
+
+impl NextLineStatus {
+    pub fn should_stop(&self) -> bool {
+        match self {
+            NextLineStatus::Stop => true,
+            _ => false,
+        }
+    }
 }
 
 impl Repl {
@@ -16,12 +41,29 @@ impl Repl {
         Repl {
             ev: evaluator::Evaluator::new(),
             debug,
+            stdout: stdout().into_raw_mode().unwrap(),
+            buf_ptr: 0,
         }
     }
+
+    fn print(&mut self, s: &str) -> Result<(), String> {
+        if let Err(e) = self.stdout.write(s.as_bytes()) {
+            return Err(format!("error while writing to stdout: {}", e));
+        }
+        if let Err(e) = self.stdout.flush() {
+            return Err(format!("error while flushing stdout: {}", e));
+        }
+        Ok(())
+    }
+
+    fn println(&mut self, s: &str) -> Result<(), String> {
+        self.print(&format!("{}\r\n", s))
+    }
+
     fn handle_line(&mut self, line: &str) -> Result<(), String> {
         if let Some(mut lex) = lexer::Lexer::new(line) {
             if self.debug {
-                println!("Tokens are {:#?}", lex.get_all_tokens())
+                self.println(&format!("Tokens are {:#?}", lex.get_all_tokens()))?;
             }
             let mut parser;
             if let Some(p) = parser::Parser::new(&mut lex) {
@@ -32,7 +74,7 @@ impl Repl {
 
             let prog = parser.parse_program()?;
             if self.debug {
-                println!("Program parses to: {:?}", prog);
+                self.println(&format!("Program parses to: {:?}", prog))?;
             }
             let result = self.ev.eval(prog.as_node(), &None)?.repr();
             println!("Program evaluates to: {:?}", result);
@@ -42,30 +84,155 @@ impl Repl {
         }
     }
 
-    pub fn run(&mut self) -> Result<(), String> {
-        let mut buf = String::new();
-        loop {
-            print!("{}", PROMPT);
-            std::io::stdout().flush().unwrap();
-            buf.clear();
-            match std::io::stdin().read_line(&mut buf) {
-                // EOF
-                Ok(0) => {
-                    println!("bye!");
-                    return Ok(());
+    fn clear(&mut self) -> Result<(), String> {
+        self.print(&format!("{}{}", termion::clear::All, cursor::Goto(1, 1)))
+    }
+
+    fn write_prompt(&mut self) -> Result<(), String> {
+        self.print(PROMPT)
+    }
+
+    fn get_cursor_pos(&mut self, buf_ptr: usize) -> Result<Goto, String> {
+        let (_, cur_pos_y) = match self.stdout.cursor_pos() {
+            Ok(pos) => pos,
+            Err(e) => return Err(format!("error while retrieving cursor position: {}", e)),
+        };
+        Ok(Goto((PROMPT_LEN + buf_ptr + 1) as u16, cur_pos_y))
+    }
+
+    fn display_line(&mut self, line: &str, buf_ptr: usize, newline: bool) -> Result<(), String> {
+        let cursor_pos = self.get_cursor_pos(buf_ptr)?;
+        let clear = termion::clear::CurrentLine;
+        let formatted_line = format!(
+            "{clear}{prompt}{line}{cursor_pos}",
+            clear = clear,
+            prompt = PROMPT,
+            line = line,
+            cursor_pos = cursor_pos,
+        );
+        match newline {
+            true => self.println(&formatted_line),
+            false => self.print(&formatted_line),
+        }
+    }
+
+    fn reset_buf_ptr(&mut self, buf: &mut String, reset: bool) {
+        self.buf_ptr = if reset { 0 } else { buf.chars().count() };
+    }
+
+    fn delete_char(&mut self, buf: &mut String) {
+        if self.buf_ptr > 0 {
+            self.buf_ptr -= 1;
+            buf.remove(self.buf_ptr);
+        }
+    }
+
+    /// Returns Some(NextLineStatus) if the status should be returned, None otherwise
+    fn match_key(&mut self, buf: &mut String, key: Key) -> Result<Option<NextLineStatus>, String> {
+        let left_offset = |i| if i > 0 { 1 } else { 0 };
+        let right_offset = |i, max_len| if i < max_len { 1 } else { 0 };
+
+        match key {
+            Key::Char(c) => match c {
+                '\n' => {
+                    self.display_line(&buf, buf.chars().count(), true)?;
+                    return Ok(Some(NextLineStatus::Continue));
                 }
-                // Normal case
-                Ok(_) => {
-                    if let Err(s) = self.handle_line(&buf) {
-                        eprintln!("Error: {}", s)
+                _ => {
+                    if self.buf_ptr == buf.len() {
+                        buf.push(c);
+                    } else {
+                        buf.insert(self.buf_ptr, c);
+                    }
+                    self.buf_ptr += 1;
+                }
+            },
+            Key::Ctrl('d') | Key::Ctrl('c') | Key::Ctrl('q') => {
+                return Ok(Some(NextLineStatus::Stop))
+            }
+            Key::Ctrl('l') => self.clear()?,
+            Key::Left => self.buf_ptr -= left_offset(self.buf_ptr),
+            Key::Right => self.buf_ptr += right_offset(self.buf_ptr, buf.chars().count()),
+            Key::Home => self.buf_ptr = 0,
+            Key::End => self.buf_ptr = buf.chars().count(),
+            Key::Up => return Ok(Some(NextLineStatus::Previous)),
+            Key::Down => return Ok(Some(NextLineStatus::Next)),
+            Key::Backspace => self.delete_char(buf),
+            _ => (),
+        };
+
+        Ok(None)
+    }
+
+    fn next_line(&mut self, buf: &mut String, reset: bool) -> Result<NextLineStatus, String> {
+        let stdin = stdin();
+        self.reset_buf_ptr(buf, reset);
+
+        self.display_line(&buf, self.buf_ptr, false)?;
+        for key_result in stdin.keys() {
+            match key_result {
+                Ok(key) => {
+                    if let Some(status) = self.match_key(buf, key)? {
+                        return Ok(status);
                     }
                 }
-                // Oops
-                Err(e) => {
-                    return Err(e.to_string());
-                }
+                Err(e) => return Err(format!("error while reading stdin: {}", e)),
             }
+            self.display_line(&buf, self.buf_ptr, false)?;
         }
+        Ok(NextLineStatus::Stop)
+    }
+
+    fn loop_(&mut self) -> Result<(), String> {
+        let mut buf = String::new();
+        let mut status = NextLineStatus::Continue;
+        let mut history = vec!["".to_string()];
+        let mut hist_ptr = 0;
+        let mut reset = true;
+        while !status.should_stop() {
+            self.write_prompt()?;
+            status = self.next_line(&mut buf, reset)?;
+            reset = match status {
+                NextLineStatus::Continue => {
+                    // self.println(&format!("CONTINUE BUF |{}|", buf));
+                    if !buf.is_empty() && !history.contains(&buf) {
+                        history.push(buf.clone());
+                    }
+                    if !buf.is_empty() {
+                        if let Err(e) = self.handle_line(&buf) {
+                            self.println(&format!("Error: {}", e))?;
+                        }
+                    }
+                    hist_ptr = history.len();
+                    buf.clear();
+                    true
+                }
+                NextLineStatus::Previous => {
+                    if hist_ptr > 0 {
+                        hist_ptr -= 1;
+                    }
+                    buf = history[hist_ptr].clone();
+                    false
+                }
+                NextLineStatus::Next => {
+                    hist_ptr += 1;
+                    if hist_ptr >= history.len() {
+                        hist_ptr = history.len();
+                        buf.clear();
+                    } else {
+                        buf = history[hist_ptr].clone();
+                    }
+                    false
+                }
+                _ => true,
+            };
+        }
+        self.println("bye!")?;
+        Ok(())
+    }
+
+    pub fn run(&mut self) -> Result<(), String> {
+        self.loop_()
     }
 }
 

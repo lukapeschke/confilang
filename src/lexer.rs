@@ -3,6 +3,7 @@ use crate::utils::HashableFloat;
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
+    raw: &'a str,
     chars: std::iter::Peekable<std::str::Chars<'a>>,
     len: usize,
     read_pos: usize,
@@ -202,6 +203,13 @@ impl<'a> Lexer<'a> {
         })
     }
 
+    fn reset(&mut self) {
+        self.chars = self.raw.chars().peekable();
+        self.len = self.raw.chars().count();
+        self.read_pos = 0;
+        self.ch = 0 as char;
+    }
+
     pub fn new(text: &str) -> Option<Lexer> {
         let len = text.chars().count();
         if len < 1 {
@@ -209,6 +217,7 @@ impl<'a> Lexer<'a> {
         }
 
         Some(Lexer {
+            raw: text,
             chars: text.chars().peekable(),
             len,
             read_pos: 0,
@@ -221,6 +230,7 @@ impl<'a> Lexer<'a> {
         while let Some(tok) = self.next_token() {
             output.push(tok.clone())
         }
+        self.reset();
         output
     }
 }
