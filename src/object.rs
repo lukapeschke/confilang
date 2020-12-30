@@ -174,14 +174,15 @@ impl HashMap {
     }
 
     pub fn repr(&self) -> String {
-        let pairs = self
+        let mut pairs = self
             .elems
             .iter()
             .map(|(k, v)| format!("{}: {}", k.repr(), v.repr()))
-            .collect::<Vec<String>>()
-            .join(", ");
+            .collect::<Vec<String>>();
+        pairs.sort();
+
         // brackets + format brackets
-        format!("{{{}}}", pairs)
+        format!("{{{}}}", pairs.join("| "))
     }
 
     pub fn index_access(&self, idx: &Object) -> Result<Object, String> {

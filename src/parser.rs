@@ -387,11 +387,10 @@ toto
         }
     }
 
-    // FIXME(lpeschke): Flaky, keys may be swapped
     #[test]
     fn test_hashmap() {
         let v = [
-            ("{1: 2, \"a\": \"b\"}", "{1: 2, \"a\": \"b\"}"),
+            ("{1: 2, \"a\": \"b\"}", "{\"a\": \"b\", 1: 2}"),
             ("{}", "{}"),
         ];
         for t in v.iter() {

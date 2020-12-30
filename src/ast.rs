@@ -491,14 +491,14 @@ pub mod expressions {
 
     impl Representable for HashMap {
         fn repr(&self) -> String {
-            let pairs = self
+            let mut pairs = self
                 .map
                 .iter()
                 .map(|(k, v)| format!("{}: {}", k.repr(), v.repr()))
-                .collect::<Vec<String>>()
-                .join(", ");
+                .collect::<Vec<String>>();
+            pairs.sort();
             // brackets + format brackets
-            format!("{{{}}}", pairs)
+            format!("{{{}}}", pairs.join(", "))
         }
     }
 }
